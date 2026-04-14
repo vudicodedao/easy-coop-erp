@@ -52,14 +52,14 @@ cd server
 npm install
 npm start
 # Server sẽ chạy ở cổng http://localhost:5000
-
+```
 **Chạy Frontend (Client):**
 ```bash
 cd client
 npm install
 npm start
 # Client sẽ mở trên trình duyệt tại http://localhost:3000
-
+```
 ## 🔒 Phân quyền Hệ thống (Role-based Access Control)
 Phần mềm có cơ chế bảo vệ Route chặt chẽ dựa trên 4 vai trò:
 
