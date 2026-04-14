@@ -52,14 +52,15 @@ cd server
 npm install
 npm start
 # Server sẽ chạy ở cổng http://localhost:5000
-Chạy Frontend (Client):
 
-Bash
+**Chạy Frontend (Client):**
+```bash
 cd client
 npm install
 npm start
 # Client sẽ mở trên trình duyệt tại http://localhost:3000
-🔒 Phân quyền Hệ thống (Role-based Access Control)
+
+## 🔒 Phân quyền Hệ thống (Role-based Access Control)
 Phần mềm có cơ chế bảo vệ Route chặt chẽ dựa trên 4 vai trò:
 
 Giám đốc: Toàn quyền truy cập, xem báo cáo, quyết toán công nợ và thêm/sửa/xóa thành viên.
@@ -70,10 +71,10 @@ Thủ kho: Quản lý danh mục kho, lập phiếu nhập/xuất vật tư.
 
 Xã viên: Chỉ được xem hồ sơ cá nhân (kèm QR Code), theo dõi công nợ của bản thân và ghi Nhật ký canh tác.
 
-📝 Tác giả (Author)
+## 📝 Tác giả (Author)
 [Nguyễn Tuấn Vũ] - Software Engineering Student at VNUA
 
-Dự án được phát triển nhằm mục đích số hóa nông nghiệp và áp dụng kiến trúc phần mềm vào thực tiễn vận hành Hợp tác xã.
+## Dự án được phát triển nhằm mục đích số hóa nông nghiệp và áp dụng kiến trúc phần mềm vào thực tiễn vận hành Hợp tác xã.
 
 
 ***
