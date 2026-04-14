@@ -1,0 +1,5 @@
+node_modules/
+.env
+# Bỏ qua thư mục lưu ảnh người dùng upload (Tùy theo cách bạn đặt tên thư mục ở backend)
+uploads/ 
+public/uploads/
