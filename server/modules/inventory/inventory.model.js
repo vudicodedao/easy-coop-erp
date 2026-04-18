@@ -8,15 +8,17 @@ const Inventory = sequelize.define('Inventory', {
         type: DataTypes.ENUM('Vật tư đầu vào', 'Nông sản đầu ra', 'Công cụ dụng cụ'),
         allowNull: false 
     },
+    // --- PHẦN THÊM MỚI (V3.2): Phân loại chất lượng ---
+    quality: { type: DataTypes.STRING, defaultValue: 'Tiêu chuẩn' }, 
+
     quantity: { type: DataTypes.FLOAT, defaultValue: 0 }, 
     unit: { type: DataTypes.STRING }, 
     unitPrice: { type: DataTypes.BIGINT, defaultValue: 0 }, 
     supplier: { type: DataTypes.STRING }, 
     lastUpdated: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     
-    // --- PHẦN THÊM MỚI (V3.1) ---
-    batchNumber: { type: DataTypes.STRING }, // Số lô hàng
-    expiryDate: { type: DataTypes.DATEONLY } // Hạn sử dụng
+    batchNumber: { type: DataTypes.STRING }, 
+    expiryDate: { type: DataTypes.DATEONLY } 
 });
 
 // BẢNG 2: LỊCH SỬ GIAO DỊCH (PHIẾU NHẬP / PHIẾU XUẤT)
@@ -31,12 +33,10 @@ const InventoryTransaction = sequelize.define('InventoryTransaction', {
     quantity: { type: DataTypes.FLOAT, allowNull: false }, 
     unitPrice: { type: DataTypes.BIGINT, defaultValue: 0 },
     
-    // --- PHẦN THÊM MỚI (V3.1) ---
-    memberPhone: { type: DataTypes.STRING }, // Lưu số điện thoại nếu xuất bán cho thành viên
-    isCredit: { type: DataTypes.BOOLEAN, defaultValue: false } // Cờ đánh dấu Mua chịu (Nợ)
+    memberPhone: { type: DataTypes.STRING }, 
+    isCredit: { type: DataTypes.BOOLEAN, defaultValue: false } 
 });
 
-// THIẾT LẬP MỐI QUAN HỆ
 Inventory.hasMany(InventoryTransaction, { onDelete: 'CASCADE' });
 InventoryTransaction.belongsTo(Inventory);
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getAllOrders, createOrder, deleteOrder, updateOrder } from '../api/salesApi';
 import { getAllItems } from '../api/inventoryApi';
-import { getAllMembers } from '../api/memberApi'; // BỔ SUNG GỌI API THÀNH VIÊN
+import { getAllMembers } from '../api/memberApi'; 
 import * as XLSX from 'xlsx';
 
 const Sales = () => {
@@ -13,19 +13,19 @@ const Sales = () => {
 
     const [orders, setOrders] = useState([]);
     const [inventoryItems, setInventoryItems] = useState([]);
-    const [membersList, setMembersList] = useState([]); // BỔ SUNG DANH SÁCH THÀNH VIÊN
+    const [membersList, setMembersList] = useState([]); 
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // THÊM orderType, memberPhone, advancePayment VÀO INITIAL FORM
     const initialForm = { orderType: 'Bán hàng', customerName: '', phone: '', memberPhone: '', status: 'Đã giao', paymentStatus: 'Chưa thanh toán', paymentMethod: 'Tiền mặt', advancePayment: 0 };
     const [formData, setFormData] = useState(initialForm);
-    const [selectedProducts, setSelectedProducts] = useState([{ productId: '', quantity: 1, price: 0, quality: 'Loại 1' }]); // Thêm quality
+    
+    // GỠ BỎ quality TRONG init form vì ta sẽ tự lấy từ Kho ra
+    const [selectedProducts, setSelectedProducts] = useState([{ productId: '', quantity: 1, price: 0 }]); 
 
     const fetchData = async () => {
         const [ordersRes, invRes, membersRes] = await Promise.all([getAllOrders(), getAllItems(), getAllMembers()]);
         setOrders(ordersRes.data);
-        // GIỮ NGUYÊN BỘ LỌC CỦA BẠN (Chỉ hiển thị nông sản)
         setInventoryItems(invRes.data.filter(item => item.category === 'Nông sản đầu ra'));
         setMembersList(membersRes.data);
     };
@@ -34,7 +34,6 @@ const Sales = () => {
 
     const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-    // HÀM CHỌN NHANH THÀNH VIÊN TỪ DROPDOWN (Khi thu mua)
     const handleMemberSelect = (e) => {
         const phone = e.target.value;
         const member = membersList.find(m => m.phone === phone);
@@ -48,13 +47,17 @@ const Sales = () => {
     const handleProductChange = (index, field, value) => {
         const newProducts = [...selectedProducts];
         newProducts[index][field] = value;
+        // KHI CHỌN MÃ HÀNG TỪ KHO -> TỰ ĐỘNG KÉO GIÁ MẶC ĐỊNH VÀ CHẤT LƯỢNG RA
         if (field === 'productId') {
             const selectedItem = inventoryItems.find(item => item.id.toString() === value);
-            if (selectedItem) newProducts[index].price = selectedItem.unitPrice || 0;
+            if (selectedItem) {
+                newProducts[index].price = selectedItem.unitPrice || 0;
+                newProducts[index].quality = selectedItem.quality || 'Tiêu chuẩn';
+            }
         }
         setSelectedProducts(newProducts);
     };
-    const addProductRow = () => setSelectedProducts([...selectedProducts, { productId: '', quantity: 1, price: 0, quality: 'Loại 1' }]);
+    const addProductRow = () => setSelectedProducts([...selectedProducts, { productId: '', quantity: 1, price: 0 }]);
     const removeProductRow = (index) => setSelectedProducts(selectedProducts.filter((_, i) => i !== index));
 
     const handleSubmit = async (e) => {
@@ -64,14 +67,13 @@ const Sales = () => {
 
         try {
             await createOrder({ ...formData, products: selectedProducts, creator: currentUser.fullName });
-            setFormData(initialForm); setSelectedProducts([{ productId: '', quantity: 1, price: 0, quality: 'Loại 1' }]);
+            setFormData(initialForm); setSelectedProducts([{ productId: '', quantity: 1, price: 0 }]);
             setIsModalOpen(false); fetchData();
         } catch (error) {
             alert(error.response?.data?.message || "Lỗi khi tạo đơn!");
         }
     };
 
-    // XỬ LÝ CẬP NHẬT TRẠNG THÁI NHANH TỪ BẢNG (Giữ nguyên)
     const handleQuickUpdate = async (id, field, value) => {
         if (!canUpdateStatus) return alert("Bạn không có quyền cập nhật trạng thái!");
         
@@ -110,7 +112,7 @@ const Sales = () => {
 
     const handleExportExcel = () => {
         const dataToExport = filteredOrders.map((o, index) => {
-            const productsStr = o.OrderDetails?.map(d => `${d.Inventory?.itemName} (${d.quantity} ${d.unit} - ${d.quality || ''})`).join(', ') || '';
+            const productsStr = o.OrderDetails?.map(d => `${d.Inventory?.itemName} (${d.quantity} ${d.unit} - ${d.Inventory?.quality || d.quality || 'Tiêu chuẩn'})`).join(', ') || '';
             return {
                 "STT": index + 1, "Loại Đơn": o.orderType, "Mã Đơn": o.orderCode, "Ngày": o.orderDate,
                 "Khách hàng / Xã viên": o.customerName, "Số điện thoại": o.phone || '',
@@ -124,7 +126,7 @@ const Sales = () => {
     };
 
     return (
-        <div className="page-wrapper" style={{ padding: '20px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div className="page-wrapper" style={{ padding: '20px', height: '100%', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             <style>{`
                 * { box-sizing: border-box; }
                 .header-section { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #bdc3c7; padding-bottom: 15px; margin-bottom: 20px; }
@@ -133,7 +135,7 @@ const Sales = () => {
                 .btn { padding: 10px 16px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; background: #f39c12; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
                 .btn:hover { background: #e67e22; }
                 .card-container { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); flex: 1; overflow: hidden; display: flex; flex-direction: column; }
-                .table-scroll { flex: 1; overflow: auto; max-height: 60vh;}
+                .table-scroll { width: 100%; flex: 1; overflow: auto; max-height: 80vh;}
                 table { width: 100%; border-collapse: collapse; min-width: 1100px; table-layout: fixed; }
                 th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #f1f2f6; word-wrap: break-word; vertical-align: top;}
                 th { background: #f8f9fa; position: sticky; top: 0; z-index: 10; color: #2c3e50; box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1); }
@@ -145,27 +147,24 @@ const Sales = () => {
                 .modal-header { padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
                 .modal-body { padding: 20px; overflow-y: auto; flex: 1; overflow-x: hidden; }
                 .modal-footer { padding: 15px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; background: #f8f9fa; gap: 10px; }
-                .product-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr 40px; gap: 10px; align-items: center; margin-bottom: 10px; background: #f8f9fa; padding: 12px; border-radius: 6px; border: 1px solid #e0e0e0; }
+                
+                /* ĐIỀU CHỈNH LẠI CỘT SAU KHI XÓA Ô CHỌN CHẤT LƯỢNG */
+                .product-row { display: grid; grid-template-columns: 3fr 1fr 1fr 40px; gap: 10px; align-items: center; margin-bottom: 10px; background: #f8f9fa; padding: 12px; border-radius: 6px; border: 1px solid #e0e0e0; }
                 
                 .type-tab { flex: 1; padding: 12px; text-align: center; font-weight: bold; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.3s; }
                 .type-tab.active-sale { border-bottom: 3px solid #f39c12; color: #d35400; background: #fff8e1; }
                 .type-tab.active-buy { border-bottom: 3px solid #27ae60; color: #1e8449; background: #eafaf1; }
                 @media (max-width: 768px) {
                     .page-wrapper { padding: 15px !important; overflow-y: auto;}
-                    /* Căn dọc các Header và Nút bấm */
                     .header-section { flex-direction: column; align-items: flex-start !important; gap: 15px; }
                     .header-section > div, .action-buttons { width: 100%; flex-direction: column; display: flex; gap: 10px; }
                     .header-section .btn { width: 100%; justify-content: center; margin: 0 !important; padding: 12px; }
-                    /* Căn dọc thanh Tìm kiếm (Toolbar) */
                     .toolbar { flex-direction: column; align-items: stretch !important; gap: 10px; padding: 15px 10px; }
                     .toolbar > * { width: 100% !important; margin: 0 !important; }
-                    /* Form và Modal không bị bóp méo */
                     .form-grid, .modal-body > div, .product-row { grid-template-columns: 1fr !important; gap: 15px; }
                     .form-group-modal { flex-direction: column; align-items: flex-start; }
                     .form-label-modal { width: 100%; margin-bottom: 5px; }
-                    /* Thẻ KPI & Biểu đồ */
                     .dashboard-cards, .kpi-grid, .charts-wrapper { grid-template-columns: 1fr !important; }
-                    /* Nút Tabs trượt ngang */
                     .tab-header { overflow-x: auto; white-space: nowrap; padding-bottom: 5px; width: 100%; }
                     .tab-btn { flex-shrink: 0; }
                 }
@@ -173,7 +172,6 @@ const Sales = () => {
 
             <div className="header-section">
                 <h2 style={{ margin: 0, color: '#2c3e50' }}>🛒 Quản lý Bán hàng & Thu mua</h2>
-                {/* BỌC 2 NÚT VÀO THẺ DIV ĐỂ CHÚNG ĐỨNG CẠNH NHAU */}
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <button className="btn" style={{background: 'white', color: '#333', border: '1px solid #ccc'}} onClick={handleExportExcel}>📥 Xuất Excel</button>
                     {canCreate && <button className="btn" onClick={() => setIsModalOpen(true)}>+ Tạo Phiếu Mới</button>}
@@ -211,7 +209,7 @@ const Sales = () => {
                                     <td>
                                         <ul style={{ margin: 0, paddingLeft: '15px', fontSize: '13px' }}>
                                             {order.OrderDetails?.map(detail => (
-                                                <li key={detail.id}>{detail.Inventory?.itemName}: {detail.quantity} {detail.unit} - {detail.quality || 'Thường'} x {detail.unitPrice.toLocaleString()}</li>
+                                                <li key={detail.id}>{detail.Inventory?.itemName}: {detail.quantity} {detail.unit} - {detail.Inventory?.quality || detail.quality || 'Tiêu chuẩn'} x {detail.unitPrice.toLocaleString()}</li>
                                             ))}
                                         </ul>
                                     </td>
@@ -302,17 +300,15 @@ const Sales = () => {
                                 <h4 style={{borderBottom: '2px solid #f39c12', paddingBottom: '10px', color: '#e67e22'}}>🛒 CHỌN NÔNG SẢN {formData.orderType.toUpperCase()}</h4>
                                 {selectedProducts.map((prod, index) => (
                                     <div className="product-row" key={index}>
+                                        {/* CẬP NHẬT: KHI CHỌN SẢN PHẨM SẼ HIỂN THỊ LUÔN CHẤT LƯỢNG */}
                                         <select className="tool-select" value={prod.productId} onChange={(e) => handleProductChange(index, 'productId', e.target.value)} required>
-                                            <option value="">-- Chọn nông sản --</option>
-                                            {inventoryItems.map(item => (<option key={item.id} value={item.id}>{item.itemName}</option>))}
+                                            <option value="">-- Chọn nông sản (Loại) --</option>
+                                            {inventoryItems.map(item => (
+                                                <option key={item.id} value={item.id}>
+                                                    {item.itemName} ({item.quality || 'Tiêu chuẩn'}) - Giá: {new Intl.NumberFormat('vi-VN').format(item.unitPrice)}đ
+                                                </option>
+                                            ))}
                                         </select>
-                                        
-                                        {/* THÊM Ô PHÂN LOẠI CHẤT LƯỢNG CHO THU MUA */}
-                                        {formData.orderType === 'Thu mua' && (
-                                            <select className="tool-input" value={prod.quality} onChange={(e) => handleProductChange(index, 'quality', e.target.value)}>
-                                                <option value="Loại 1">Loại 1</option><option value="Loại 2">Loại 2</option><option value="Hàng dạt">Hàng dạt</option>
-                                            </select>
-                                        )}
 
                                         <input type="number" step="0.1" className="tool-input" placeholder="SL" value={prod.quantity} onChange={(e) => handleProductChange(index, 'quantity', e.target.value)} required />
                                         <input type="number" className="tool-input" placeholder="Đơn giá" value={prod.price} onChange={(e) => handleProductChange(index, 'price', e.target.value)} required />

@@ -77,4 +77,27 @@ const login = async (req, res) => {
     }
 };
 
-module.exports = { register, login };
+// [THÊM MỚI] - XỬ LÝ ĐỔI MẬT KHẨU
+const changePassword = async (req, res) => {
+    try {
+        const { phone, oldPassword, newPassword } = req.body;
+        
+        const user = await User.findOne({ where: { phone } });
+        if (!user) return res.status(404).json({ message: "Không tìm thấy tài khoản" });
+
+        // 1. Kiểm tra mật khẩu cũ có khớp không
+        const isMatch = await bcrypt.compare(oldPassword, user.password);
+        if (!isMatch) return res.status(400).json({ message: "Mật khẩu hiện tại không chính xác!" });
+
+        // 2. Băm mật khẩu mới và lưu
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+        await user.update({ password: hashedNewPassword });
+
+        res.status(200).json({ message: "Đổi mật khẩu thành công!" });
+    } catch (error) {
+        console.error("Lỗi đổi mật khẩu:", error);
+        res.status(500).json({ message: "Lỗi server khi đổi mật khẩu" });
+    }
+};
+
+module.exports = { register, login, changePassword };

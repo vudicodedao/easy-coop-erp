@@ -14,7 +14,6 @@ const addMember = async (req, res) => {
         const newMember = await memberService.createNewMember(req.body);
         res.status(201).json(newMember);
     } catch (error) {
-        // Trả về chính xác thông báo lỗi từ Service (SĐT trùng, SĐT sai định dạng...)
         res.status(400).json({ message: error.message || "Lỗi khi thêm thành viên" });
     }
 };
@@ -37,4 +36,14 @@ const updateMember = async (req, res) => {
     }
 };
 
-module.exports = { getMembers, addMember, deleteMember, updateMember };
+// [THÊM MỚI] - CONTROLLER KHÔI PHỤC MẬT KHẨU
+const resetPassword = async (req, res) => {
+    try {
+        const phone = await memberService.resetPasswordById(req.params.id);
+        res.status(200).json({ message: `Đã khôi phục mật khẩu thành công! Mật khẩu mới là: ${phone}` });
+    } catch (error) {
+        res.status(400).json({ message: error.message || "Lỗi khi khôi phục mật khẩu" });
+    }
+};
+
+module.exports = { getMembers, addMember, deleteMember, updateMember, resetPassword };

@@ -163,7 +163,7 @@ const Finance = () => {
                 
                 /* ÁP DỤNG CUỘN LỒNG KÉP */
                 .card-container { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; margin-bottom: 20px; }
-                .table-scroll { width: 100%; overflow: auto; max-height: 60vh; }
+                .table-scroll { width: 100%; overflow: auto; max-height: 80vh; }
                 
                 table { width: 100%; border-collapse: collapse; min-width: 900px; }
                 th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #f1f2f6; }

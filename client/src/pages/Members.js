@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom'; 
-import { getAllMembers, createMember, deleteMember, updateMember } from '../api/memberApi';
+import { getAllMembers, createMember, deleteMember, updateMember, resetPassword } from '../api/memberApi';
+import { changePassword } from '../api/authApi';
 import * as XLSX from 'xlsx';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
@@ -11,6 +12,10 @@ const Members = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    
+    // State cho chức năng Đổi mật khẩu
+    const [isChangePwdModalOpen, setIsChangePwdModalOpen] = useState(false);
+    const [pwdForm, setPwdForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
     
     const location = useLocation();
     const isProfileView = location.pathname === '/'; 
@@ -54,14 +59,7 @@ const Members = () => {
             return `http://localhost:5000${res.data.url}`;
         } catch (error) {
             setIsUploading(false);
-            console.error("LỖI UPLOAD CHI TIẾT:", error);
-            if (error.response) {
-                alert(`❌ Lỗi từ Server: ${error.response.status} - ${error.response.data?.message || 'Không rõ nguyên nhân'}`);
-            } else if (error.request) {
-                alert("❌ Lỗi Mạng: Không thể kết nối đến Server (Server có đang chạy cổng 5000 không?)");
-            } else {
-                alert(`❌ Lỗi React: ${error.message}`);
-            }
+            alert("❌ Lỗi Upload ảnh!");
             return null;
         }
     };
@@ -83,6 +81,11 @@ const Members = () => {
             if (editingId) {
                 await updateMember(editingId, dataToSave);
                 alert("Cập nhật thành công!");
+                if (dataToSave.phone === currentUser.phone) {
+                    const updatedUser = { ...currentUser, fullName: dataToSave.name, role: dataToSave.role };
+                    localStorage.setItem('user', JSON.stringify(updatedUser));
+                    window.dispatchEvent(new Event('userUpdated')); 
+                }
             } else {
                 await createMember(dataToSave);
                 alert(`Tạo thành công! Mật khẩu đăng nhập mặc định của ${dataToSave.name} là: ${dataToSave.phone}`);
@@ -100,6 +103,38 @@ const Members = () => {
             await deleteMember(id); 
             fetchMembers(); 
         } 
+    };
+
+    // [THÊM MỚI] - Xử lý nút Reset Mật Khẩu (Dành cho Giám đốc)
+    const handleResetPassword = async (id, name) => {
+        if (window.confirm(`🔐 Bạn có chắc chắn muốn KHÔI PHỤC MẬT KHẨU của [${name}] về mặc định (Số điện thoại) không?`)) {
+            try {
+                const res = await resetPassword(id);
+                alert(res.data.message);
+            } catch (error) {
+                alert("❌ Lỗi: " + (error.response?.data?.message || "Không thể khôi phục mật khẩu"));
+            }
+        }
+    };
+
+    // [THÊM MỚI] - Xử lý Gửi Form Đổi Mật Khẩu (Dành cho Cá nhân)
+    const handlePasswordSubmit = async (e) => {
+        e.preventDefault();
+        if (pwdForm.newPassword !== pwdForm.confirmPassword) {
+            return alert("❌ Mật khẩu mới và Nhập lại không khớp!");
+        }
+        try {
+            const res = await changePassword({
+                phone: currentUser.phone,
+                oldPassword: pwdForm.oldPassword,
+                newPassword: pwdForm.newPassword
+            });
+            alert("✅ " + res.data.message);
+            setIsChangePwdModalOpen(false);
+            setPwdForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
+        } catch (error) {
+            alert("❌ Lỗi: " + (error.response?.data?.message || "Đổi mật khẩu thất bại"));
+        }
     };
 
     const handleExportExcel = () => { 
@@ -132,7 +167,7 @@ const Members = () => {
                 
                 const updatedUser = { ...currentUser, fullName: myProfileData.name, role: myProfileData.role || currentUser.role };
                 localStorage.setItem('user', JSON.stringify(updatedUser));
-                window.location.reload(); 
+                window.dispatchEvent(new Event('userUpdated'));
             } catch (err) { alert("Lỗi cập nhật!"); }
         };
 
@@ -152,29 +187,20 @@ const Members = () => {
                     .btn-save { background-color: #3498db; color: white; border: none; padding: 14px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 15px; width: 100%; transition: 0.3s; text-transform: uppercase; box-sizing: border-box;}
                     .btn-save:hover { background-color: #2980b9; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(41, 128, 185, 0.3); }
                     
+                    .btn-warning { background-color: #e67e22; }
+                    .btn-warning:hover { background-color: #d35400; box-shadow: 0 4px 10px rgba(230, 126, 34, 0.3); }
+
                     .full-width { grid-column: span 2; width: 100%; }
+                    
+                    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 10px; }
+                    .modal-content { background: white; width: 100%; max-width: 400px; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
 
                     @media (max-width: 768px) {
                         .page-wrapper { padding: 15px !important; }
                         .profile-card { padding: 15px !important; }
-                        
-                        .header-section { flex-direction: column; align-items: flex-start !important; gap: 15px; }
-                        .header-section > div, .action-buttons { width: 100%; flex-direction: column; display: flex; gap: 10px; }
-                        .header-section .btn { width: 100%; justify-content: center; margin: 0 !important; padding: 12px; }
-                        
-                        .toolbar { flex-direction: column; align-items: stretch !important; gap: 10px; padding: 15px 10px; }
-                        .toolbar > * { width: 100% !important; margin: 0 !important; }
-                        
-                        .form-grid, .modal-body > div, .product-row { grid-template-columns: 1fr !important; gap: 15px; }
+                        .form-grid { grid-template-columns: 1fr !important; gap: 15px; }
                         .full-width { grid-column: span 1 !important; }
-                        
-                        .form-group-modal { flex-direction: column; align-items: flex-start; }
-                        .form-label-modal { width: 100%; margin-bottom: 5px; }
-                        
-                        .dashboard-cards, .kpi-grid, .charts-wrapper { grid-template-columns: 1fr !important; }
-                        
-                        .tab-header { overflow-x: auto; white-space: nowrap; padding-bottom: 5px; width: 100%; }
-                        .tab-btn { flex-shrink: 0; }
+                        .btn-group-mobile { flex-direction: column; }
                     }
                 `}</style>
 
@@ -198,7 +224,6 @@ const Members = () => {
 
                 <div className="profile-card">
                     <form onSubmit={handleMyProfileSubmit}>
-                        
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '40px', marginBottom: '30px', flexWrap: 'wrap' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                 <div style={{ width: '130px', height: '130px', borderRadius: '50%', border: '4px solid #ecf0f1', overflow: 'hidden', backgroundColor: '#f9f9f9', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
@@ -272,10 +297,43 @@ const Members = () => {
                                 </select>
                             </div>
                             
-                            <div className="full-width"><button type="submit" className="btn-save">💾 Lưu Cập Nhật Hồ Sơ</button></div>
+                            <div className="full-width btn-group-mobile" style={{ display: 'flex', gap: '15px' }}>
+                                <button type="submit" className="btn-save" style={{ flex: 1 }}>💾 Lưu Cập Nhật Hồ Sơ</button>
+                                <button type="button" className="btn-save btn-warning" style={{ flex: 1 }} onClick={() => setIsChangePwdModalOpen(true)}>🔐 Đổi Mật Khẩu</button>
+                            </div>
                         </div>
                     </form>
                 </div>
+
+                {/* MODAL ĐỔI MẬT KHẨU CỦA NGƯỜI DÙNG */}
+                {isChangePwdModalOpen && (
+                    <div className="modal-overlay">
+                        <div className="modal-content" style={{ maxWidth: '450px' }}>
+                            <div style={{ padding: '15px 20px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8f9fa' }}>
+                                <h3 style={{ margin: 0, color: '#2c3e50' }}>🔐 Đổi Mật Khẩu</h3>
+                                <button style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#999' }} onClick={() => setIsChangePwdModalOpen(false)}>✕</button>
+                            </div>
+                            <form onSubmit={handlePasswordSubmit} style={{ padding: '20px' }}>
+                                <div style={{ marginBottom: '15px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>Mật khẩu hiện tại:</label>
+                                    <input type="password" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} value={pwdForm.oldPassword} onChange={(e) => setPwdForm({...pwdForm, oldPassword: e.target.value})} required />
+                                </div>
+                                <div style={{ marginBottom: '15px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>Mật khẩu mới:</label>
+                                    <input type="password" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} value={pwdForm.newPassword} onChange={(e) => setPwdForm({...pwdForm, newPassword: e.target.value})} required minLength="6" />
+                                </div>
+                                <div style={{ marginBottom: '20px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>Xác nhận mật khẩu mới:</label>
+                                    <input type="password" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} value={pwdForm.confirmPassword} onChange={(e) => setPwdForm({...pwdForm, confirmPassword: e.target.value})} required minLength="6" />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                    <button type="button" onClick={() => setIsChangePwdModalOpen(false)} style={{ padding: '10px 15px', border: 'none', borderRadius: '4px', cursor: 'pointer', backgroundColor: '#ecf0f1' }}>Hủy</button>
+                                    <button type="submit" style={{ padding: '10px 15px', border: 'none', borderRadius: '4px', cursor: 'pointer', backgroundColor: '#e67e22', color: 'white', fontWeight: 'bold' }}>Cập nhật Mật khẩu</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
@@ -286,7 +344,6 @@ const Members = () => {
     return (
         <div className="page-wrapper">
             <style>{`
-                /* BAO TRÙM NGOÀI CÙNG LÀ CUỘN DỌC */
                 .page-wrapper { display: flex; flex-direction: column; height: 100%; padding: 20px; overflow-y: auto; }
                 .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0; }
                 .action-buttons { display: flex; gap: 10px; }
@@ -298,19 +355,15 @@ const Members = () => {
                 .toolbar { padding: 15px; border-bottom: 1px solid #eee; flex-shrink: 0; }
                 .search-input { padding: 10px; border-radius: 4px; border: 1px solid #ccc; outline: none; width: 300px; }
                 
-                /* ĐÂY LÀ CHÌA KHÓA: CUỘN KÉP CHO BẢNG */
-                .table-scroll { 
-                    width: 100%; 
-                    overflow: auto; /* Tự động hiện thanh cuộn cả ngang lẫn dọc */
-                    max-height: 60vh; /* Giới hạn chiều cao để sinh ra thanh cuộn dọc cục bộ */
-                }
+                .table-scroll { width: 100%; overflow: auto; max-height: 80vh; }
                 
                 table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1050px; }
                 th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; word-wrap: break-word; }
                 th { background-color: #f8f9fa; color: #333; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1); }
                 tbody tr:nth-child(even) { background-color: #fafafa; }
                 .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-                .icon-btn { background: none; border: none; cursor: pointer; font-size: 16px; margin-right: 10px; }
+                .icon-btn { background: none; border: none; cursor: pointer; font-size: 16px; margin-right: 8px; transition: 0.2s; }
+                .icon-btn:hover { transform: scale(1.2); }
                 
                 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 10px; }
                 .modal-content { background: white; width: 100%; max-width: 600px; max-height: 95vh; border-radius: 8px; display: flex; flex-direction: column; }
@@ -333,9 +386,6 @@ const Members = () => {
                     .form-grid, .modal-body > div, .product-row { grid-template-columns: 1fr !important; gap: 15px; }
                     .form-group-modal { flex-direction: column; align-items: flex-start; }
                     .form-label-modal { width: 100%; margin-bottom: 5px; }
-                    .dashboard-cards, .kpi-grid, .charts-wrapper { grid-template-columns: 1fr !important; }
-                    .tab-header { overflow-x: auto; white-space: nowrap; padding-bottom: 5px; width: 100%; }
-                    .tab-btn { flex-shrink: 0; }
                 }
             `}</style>
 
@@ -354,7 +404,7 @@ const Members = () => {
                 <div className="table-scroll">
                     <table>
                         <colgroup>
-                            <col style={{ width: '18%' }} /><col style={{ width: '12%' }} /><col style={{ width: '13%' }} /><col style={{ width: '10%' }} /><col style={{ width: '12%' }} /><col style={{ width: '16%' }} /><col style={{ width: '10%' }} /><col style={{ width: '9%' }} />
+                            <col style={{ width: '18%' }} /><col style={{ width: '12%' }} /><col style={{ width: '13%' }} /><col style={{ width: '10%' }} /><col style={{ width: '12%' }} /><col style={{ width: '14%' }} /><col style={{ width: '10%' }} /><col style={{ width: '11%' }} />
                         </colgroup>
                         <thead>
                             <tr>
@@ -390,8 +440,10 @@ const Members = () => {
                                     </td>
                                     <td><span className="badge" style={{backgroundColor: m.status === 'Hoạt động' ? '#e6f4ea' : '#fce8e6', color: m.status === 'Hoạt động' ? '#1e8e3e' : '#d93025'}}>{m.status}</span></td>
                                     <td>
-                                        <button className="icon-btn" onClick={() => handleEditClick(m)}>✏️</button>
-                                        <button className="icon-btn" onClick={() => handleDelete(m.id)}>🗑️</button>
+                                        <button className="icon-btn" onClick={() => handleEditClick(m)} title="Sửa hồ sơ">✏️</button>
+                                        {/* NÚT KHÔI PHỤC MẬT KHẨU */}
+                                        <button className="icon-btn" onClick={() => handleResetPassword(m.id, m.name)} title="Khôi phục Mật khẩu">🔄</button>
+                                        <button className="icon-btn" onClick={() => handleDelete(m.id)} title="Xóa">🗑️</button>
                                     </td>
                                 </tr>
                             ))}

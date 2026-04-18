@@ -66,9 +66,21 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // ==========================================
+  // ĐÃ SỬA: LẮNG NGHE SỰ KIỆN CẬP NHẬT USER
+  // ==========================================
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) setCurrentUser(JSON.parse(savedUser));
+    const loadUser = () => {
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) setCurrentUser(JSON.parse(savedUser));
+    };
+
+    loadUser(); // Chạy lần đầu khi mở app
+
+    // Bật radar lắng nghe tín hiệu 'userUpdated' từ các trang khác bắn sang
+    window.addEventListener('userUpdated', loadUser);
+    
+    return () => window.removeEventListener('userUpdated', loadUser);
   }, []);
 
   const handleLogout = () => {
@@ -99,7 +111,6 @@ function App() {
         .close-btn-mobile { display: none; }
         .sidebar-overlay { display: none; }
 
-        /* GIAO DIỆN MOBILE CHUYÊN NGHIỆP */
         @media (max-width: 768px) {
             .mobile-topbar {
                 display: flex; align-items: center; gap: 15px;
@@ -108,7 +119,7 @@ function App() {
                 z-index: 90; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
             }
             .mobile-toggle-btn { background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; }
-            .main-content { padding-top: 55px; } /* Đẩy nội dung xuống tránh Topbar */
+            .main-content { padding-top: 55px; } 
             
             .sidebar { position: fixed; left: 0; top: 0; height: 100vh; transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); }
@@ -118,7 +129,6 @@ function App() {
       `}</style>
       
       <div className="app-container">
-        {/* THANH TOP BAR MỚI CHO MOBILE */}
         <div className="mobile-topbar">
             <button className="mobile-toggle-btn" onClick={toggleSidebar}>☰</button>
             <span style={{fontWeight: 'bold', color: '#00a8ff', fontSize: '18px'}}>🌱 EASY CO-OP</span>

@@ -3,8 +3,11 @@ const { sequelize } = require('../../config/db');
 
 const Member = sequelize.define('Member', {
     name: { type: DataTypes.STRING, allowNull: false },
-    cccd: { type: DataTypes.STRING, unique: true }, 
-    phone: { type: DataTypes.STRING, unique: true, allowNull: false }, // Đã khóa KHÔNG CHO TRÙNG SĐT
+    
+    // ĐÃ FIX: Khai báo tên index cụ thể để Sequelize không đẻ thêm key rác
+    cccd: { type: DataTypes.STRING, unique: 'idx_unique_cccd' }, 
+    phone: { type: DataTypes.STRING, unique: 'idx_unique_phone', allowNull: false }, 
+    
     email: { type: DataTypes.STRING }, 
     address: { type: DataTypes.STRING }, 
     landArea: { type: DataTypes.FLOAT, defaultValue: 0 }, 
@@ -15,10 +18,16 @@ const Member = sequelize.define('Member', {
         type: DataTypes.ENUM('Hoạt động', 'Tạm ngưng', 'Đã rời'),
         defaultValue: 'Hoạt động'
     },
-    portraitUrl: { type: DataTypes.STRING }, // Đường dẫn ảnh chân dung
-    debtMaterial: { type: DataTypes.BIGINT, defaultValue: 0 }, // VÍ 1: Nợ vật tư (Thành viên nợ HTX)
-    debtPurchase: { type: DataTypes.BIGINT, defaultValue: 0 }, // VÍ 2: Nợ thu mua (HTX nợ Thành viên)
-    advancePayment: { type: DataTypes.BIGINT, defaultValue: 0 } // VÍ 3: Tiền ứng trước (HTX ứng cho Thành viên)
+    
+    role: { 
+        type: DataTypes.STRING, 
+        defaultValue: 'Xã viên' 
+    },
+    
+    portraitUrl: { type: DataTypes.STRING }, 
+    debtMaterial: { type: DataTypes.BIGINT, defaultValue: 0 }, 
+    debtPurchase: { type: DataTypes.BIGINT, defaultValue: 0 },
+    advancePayment: { type: DataTypes.BIGINT, defaultValue: 0 } 
 });
 
 module.exports = Member;

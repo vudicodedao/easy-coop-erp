@@ -9,7 +9,7 @@ const Inventory = () => {
     const canCreateReceipt = ['Giám đốc', 'Thủ kho'].includes(role); 
     const canDeleteReceipt = role === 'Giám đốc'; 
 
-    const [activeTab, setActiveTab] = useState('Kho hàng'); 
+    const [activeTab, setActiveTab] = useState('Kho Vật tư'); 
     
     const [items, setItems] = useState([]);
     const [transactions, setTransactions] = useState([]);
@@ -28,7 +28,7 @@ const Inventory = () => {
     const [isTransModalOpen, setIsTransModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
 
-    const initItemForm = { itemName: '', category: 'Vật tư đầu vào', unit: '', supplier: '', batchNumber: '', expiryDate: '' };
+    const initItemForm = { itemName: '', category: 'Vật tư đầu vào', quality: 'Tiêu chuẩn', unit: '', supplier: '', batchNumber: '', expiryDate: '' };
     const [itemForm, setItemForm] = useState(initItemForm);
 
     const initTransForm = { 
@@ -47,7 +47,7 @@ const Inventory = () => {
             ]);
             setItems(itemsRes.data);
             setMembersList(membersRes.data);
-            if (activeTab !== 'Kho hàng') setTransactions(transRes.data);
+            if (activeTab === 'Đã nhập' || activeTab === 'Đã xuất') setTransactions(transRes.data);
         } catch (error) { console.error("Lỗi lấy dữ liệu:", error); }
     };
 
@@ -64,14 +64,21 @@ const Inventory = () => {
         return { text: new Date(dateString).toLocaleDateString('vi-VN'), color: '#27ae60' }; 
     };
 
+    // ĐÃ FIX: Chuyển chuỗi rỗng "" thành null để không bị lỗi Database
     const handleItemSubmit = async (e) => {
         e.preventDefault();
+        const dataToSave = { ...itemForm };
+        Object.keys(dataToSave).forEach(key => { if (dataToSave[key] === '') dataToSave[key] = null; });
+
         try {
-            if (editingId) await updateItem(editingId, itemForm);
-            else await createItem(itemForm);
+            if (editingId) await updateItem(editingId, dataToSave);
+            else await createItem(dataToSave);
             setIsItemModalOpen(false); setEditingId(null); fetchData();
-        } catch (error) { alert("Lỗi lưu hàng hóa!"); }
+        } catch (error) { 
+            alert("Lỗi lưu hàng hóa! " + (error.response?.data?.message || "")); 
+        }
     };
+
     const handleDeleteItem = async (id) => {
         if (window.confirm("CẢNH BÁO: Xóa hàng hóa sẽ xóa luôn lịch sử Nhập/Xuất của nó. Chắc chắn xóa?")) {
             await deleteItem(id); fetchData();
@@ -103,15 +110,13 @@ const Inventory = () => {
                 }
             }
         }
-
         try {
             await createTransaction({ ...transForm, items: validProducts });
             alert(`Tạo phiếu ${transForm.type} kho thành công!`);
             setIsTransModalOpen(false); fetchData();
-        } catch (error) {
-            alert(error.response?.data?.message || "Lỗi tạo phiếu! (Có thể do kho không đủ số lượng)");
-        }
+        } catch (error) { alert(error.response?.data?.message || "Lỗi tạo phiếu! (Có thể do kho không đủ số lượng)"); }
     };
+    
     const handleDeleteTrans = async (id) => {
         if (window.confirm("Xóa phiếu này hệ thống sẽ tự động hoàn lại số lượng vào kho. Bạn có chắc?")) {
             await deleteTransaction(id); fetchData();
@@ -119,8 +124,10 @@ const Inventory = () => {
     };
 
     const filteredItems = items.filter(item => {
-        return item.itemName.toLowerCase().includes(searchItem.toLowerCase()) &&
-               (filterCategory === '' || item.category === filterCategory);
+        const matchName = item.itemName.toLowerCase().includes(searchItem.toLowerCase());
+        const matchTab = activeTab === 'Kho Nông sản' ? item.category === 'Nông sản đầu ra' : (item.category === 'Vật tư đầu vào' || item.category === 'Công cụ dụng cụ');
+        const matchCat = filterCategory === '' || item.category === filterCategory;
+        return matchName && matchTab && matchCat;
     }).sort((a, b) => {
         if (sortItemName === 'ASC') return a.itemName.localeCompare(b.itemName);
         if (sortItemName === 'DESC') return b.itemName.localeCompare(a.itemName);
@@ -128,25 +135,22 @@ const Inventory = () => {
     });
 
     const filteredTrans = transactions.filter(t => {
-        const matchSearch = t.Inventory?.itemName.toLowerCase().includes(searchTrans.toLowerCase()) ||
-                            t.ticketCode?.toLowerCase().includes(searchTrans.toLowerCase());
+        const matchSearch = t.Inventory?.itemName.toLowerCase().includes(searchTrans.toLowerCase()) || t.ticketCode?.toLowerCase().includes(searchTrans.toLowerCase());
         const matchStart = startDate ? new Date(t.date) >= new Date(startDate) : true;
         const matchEnd = endDate ? new Date(t.date) <= new Date(endDate) : true;
         return matchSearch && matchStart && matchEnd;
-    }).sort((a, b) => {
-        return sortDate === 'DESC' ? new Date(b.date) - new Date(a.date) : new Date(a.date) - new Date(b.date);
-    });
+    }).sort((a, b) => sortDate === 'DESC' ? new Date(b.date) - new Date(a.date) : new Date(a.date) - new Date(b.date));
 
     return (
         <div className="page-wrapper" style={{ padding: '20px', height: '100%', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             <style>{`
                 * { box-sizing: border-box; }
                 .header-section { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #bdc3c7; padding-bottom: 15px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-                .tab-header { display: flex; gap: 15px; margin-bottom: 15px; }
-                .tab-btn { background: none; border: none; font-size: 16px; font-weight: bold; color: #7f8c8d; cursor: pointer; padding: 10px 15px; position: relative; transition: 0.3s; }
-                .tab-btn:hover { color: #3498db; }
-                .tab-btn.active { color: #2980b9; }
-                .tab-btn.active::after { content: ''; position: absolute; bottom: -5px; left: 0; width: 100%; height: 3px; background-color: #3498db; border-radius: 3px; }
+                .tab-header { display: flex; gap: 15px; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px; flex-shrink: 0}
+                .tab-btn { background: none; border: none; font-size: 15px; font-weight: bold; color: #7f8c8d; cursor: pointer; padding: 10px 15px; position: relative; transition: 0.3s; border-radius: 8px 8px 0 0;}
+                .tab-btn:hover { color: #3498db; background: #f0f8ff;}
+                .tab-btn.active { color: #2980b9; background: #eaf2f8;}
+                .tab-btn.active::after { content: ''; position: absolute; bottom: -12px; left: 0; width: 100%; height: 3px; background-color: #3498db; border-radius: 3px; }
                 .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; align-items: center; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
                 .tool-input, .tool-select { padding: 8px 12px; border: 1px solid #dcdde1; border-radius: 4px; outline: none; width: 100%; }
                 .btn { padding: 10px 16px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 5px; justify-content: center; }
@@ -155,10 +159,8 @@ const Inventory = () => {
                 .btn-danger { background: #e74c3c; color: white; } .btn-danger:hover { background: #c0392b; }
                 .btn-outline { background: white; color: #333; border: 1px solid #ccc; }
                 
-                /* ÁP DỤNG CUỘN LỒNG KÉP */
                 .card-container { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; margin-bottom: 20px; }
-                .table-scroll { width: 100%; overflow: auto; max-height: 60vh;}
-                
+                .table-scroll { width: 100%; overflow: auto; max-height: 80vh;}
                 table { width: 100%; border-collapse: collapse; min-width: 1050px; }
                 th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #f1f2f6; }
                 th { background: #f8f9fa; color: #2c3e50; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1); }
@@ -169,11 +171,7 @@ const Inventory = () => {
                 .modal-footer { padding: 15px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px; background: #f8f9fa; }
                 
                 .product-row { display: grid; grid-template-columns: 3fr 1fr 1.5fr 40px; gap: 10px; align-items: center; margin-bottom: 10px; background: #f8f9fa; padding: 12px; border-radius: 6px; border: 1px solid #e0e0e0; }
-                @media (max-width: 600px) {
-                    .product-row { grid-template-columns: 1fr; }
-                    .product-row > button { justify-self: end; }
-                }
-
+                
                 @media (max-width: 768px) {
                     .page-wrapper { padding: 15px !important; }
                     .header-section { flex-direction: column; align-items: flex-start !important; gap: 15px; }
@@ -184,7 +182,6 @@ const Inventory = () => {
                     .form-grid, .modal-body > div, .product-row { grid-template-columns: 1fr !important; gap: 15px; }
                     .form-group-modal { flex-direction: column; align-items: flex-start; }
                     .form-label-modal { width: 100%; margin-bottom: 5px; }
-                    .dashboard-cards, .kpi-grid, .charts-wrapper { grid-template-columns: 1fr !important; }
                     .tab-header { overflow-x: auto; white-space: nowrap; padding-bottom: 5px; width: 100%; }
                     .tab-btn { flex-shrink: 0; }
                 }
@@ -194,7 +191,7 @@ const Inventory = () => {
                 <h2 style={{ margin: 0, color: '#2c3e50', display: 'flex', alignItems: 'center' }}>📦 Quản Trị Kho Hàng</h2>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     {canManageCategory && (
-                        <button className="btn btn-outline" onClick={() => { setItemForm(initItemForm); setEditingId(null); setIsItemModalOpen(true); }}>
+                        <button className="btn btn-outline" onClick={() => { setItemForm({...initItemForm, category: activeTab === 'Kho Nông sản' ? 'Nông sản đầu ra' : 'Vật tư đầu vào'}); setEditingId(null); setIsItemModalOpen(true); }}>
                             ➕ Thêm danh mục
                         </button>
                     )}
@@ -212,23 +209,25 @@ const Inventory = () => {
             </div>
 
             <div className="tab-header">
-                <button className={`tab-btn ${activeTab === 'Kho hàng' ? 'active' : ''}`} onClick={() => setActiveTab('Kho hàng')}>🏢 Danh mục Kho</button>
+                <button className={`tab-btn ${activeTab === 'Kho Vật tư' ? 'active' : ''}`} onClick={() => setActiveTab('Kho Vật tư')}>🛠️ Kho Vật tư & Công cụ</button>
+                <button className={`tab-btn ${activeTab === 'Kho Nông sản' ? 'active' : ''}`} onClick={() => setActiveTab('Kho Nông sản')}>🌾 Kho Nông sản</button>
                 <button className={`tab-btn ${activeTab === 'Đã nhập' ? 'active' : ''}`} onClick={() => setActiveTab('Đã nhập')}>📥 Lịch sử Đã Nhập</button>
                 <button className={`tab-btn ${activeTab === 'Đã xuất' ? 'active' : ''}`} onClick={() => setActiveTab('Đã xuất')}>📤 Lịch sử Đã Xuất</button>
             </div>
 
-            {activeTab === 'Kho hàng' && (
+            {(activeTab === 'Kho Vật tư' || activeTab === 'Kho Nông sản') && (
                 <>
                     <div className="toolbar">
                         <input className="tool-input" style={{width: '250px'}} placeholder="🔍 Tìm theo tên..." value={searchItem} onChange={(e) => setSearchItem(e.target.value)} />
-                        <select className="tool-select" style={{width: 'auto'}} value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
-                            <option value="">-- Tất cả phân loại --</option>
-                            <option value="Vật tư đầu vào">Vật tư đầu vào</option>
-                            <option value="Nông sản đầu ra">Nông sản đầu ra</option>
-                            <option value="Công cụ dụng cụ">Công cụ dụng cụ</option>
-                        </select>
+                        {activeTab === 'Kho Vật tư' && (
+                            <select className="tool-select" style={{width: 'auto'}} value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
+                                <option value="">-- Tất cả phân loại --</option>
+                                <option value="Vật tư đầu vào">Vật tư đầu vào</option>
+                                <option value="Công cụ dụng cụ">Công cụ dụng cụ</option>
+                            </select>
+                        )}
                         <select className="tool-select" style={{width: 'auto'}} value={sortItemName} onChange={(e) => setSortItemName(e.target.value)}>
-                            <option value="">Mặc định (Sắp xếp theo Tên)</option>
+                            <option value="">Sắp xếp Tên: Mặc định</option>
                             <option value="ASC">Từ A - Z</option>
                             <option value="DESC">Từ Z - A</option>
                         </select>
@@ -237,14 +236,18 @@ const Inventory = () => {
                         <div className="table-scroll">
                             <table>
                                 <colgroup>
-                                    <col style={{ width: '15%' }} /><col style={{ width: '12%' }} /><col style={{ width: '10%' }} /> 
+                                    <col style={{ width: '15%' }} />
+                                    {activeTab === 'Kho Nông sản' && <col style={{ width: '10%' }} />}
+                                    <col style={{ width: '12%' }} /><col style={{ width: '10%' }} /> 
                                     <col style={{ width: '8%' }} /><col style={{ width: '10%' }} /><col style={{ width: '10%' }} />
                                     <col style={{ width: '12%' }} /><col style={{ width: '15%' }} />
                                     {canManageCategory && <col style={{ width: '8%' }} />}
                                 </colgroup>
                                 <thead>
                                     <tr>
-                                        <th>Tên mặt hàng</th><th>Phân loại</th><th>Số lượng</th><th>Đơn vị</th>
+                                        <th>Tên mặt hàng</th>
+                                        {activeTab === 'Kho Nông sản' && <th>Chất lượng</th>}
+                                        <th>Phân loại</th><th>Số lượng</th><th>Đơn vị</th>
                                         <th>Lô hàng</th><th>Hạn dùng</th>
                                         <th>Đơn giá gốc</th><th>Nhà cung cấp</th>
                                         {canManageCategory && <th>Hành động</th>}
@@ -256,7 +259,8 @@ const Inventory = () => {
                                         return (
                                         <tr key={item.id}>
                                             <td><b>{item.itemName}</b></td>
-                                            <td><span style={{color: '#e67e22', fontWeight: 'bold'}}>{item.category}</span></td>
+                                            {activeTab === 'Kho Nông sản' && <td><span style={{fontWeight: 'bold', color: '#8e44ad', background: '#f5eef8', padding: '2px 8px', borderRadius: '4px'}}>{item.quality || 'Tiêu chuẩn'}</span></td>}
+                                            <td><span style={{color: item.category === 'Nông sản đầu ra' ? '#27ae60' : '#e67e22', fontWeight: 'bold'}}>{item.category}</span></td>
                                             <td><b style={{fontSize: '16px', color: '#27ae60'}}>{item.quantity}</b></td>
                                             <td><span style={{color: '#7f8c8d'}}>{item.unit}</span></td>
                                             
@@ -297,7 +301,7 @@ const Inventory = () => {
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Thời gian & Mã Phiếu</th><th>Người tạo</th><th>Sản phẩm</th><th>Số lượng</th>
+                                        <th>Thời gian & Mã Phiếu</th><th>Người tạo</th><th>Sản phẩm</th><th>Chất lượng</th><th>Số lượng</th>
                                         <th>{activeTab === 'Đã nhập' ? 'Nhà cung cấp' : 'Lý do xuất'}</th>
                                         {canDeleteReceipt && <th>Hành động</th>}
                                     </tr>
@@ -307,7 +311,8 @@ const Inventory = () => {
                                         <tr key={t.id}>
                                             <td><b>{t.date}</b><br/><small style={{color: '#95a5a6'}}>{t.ticketCode}</small></td>
                                             <td>{t.creator}</td>
-                                            <td><b>{t.Inventory?.itemName}</b></td>
+                                            <td><b>{t.Inventory?.itemName}</b><br/><small style={{color: '#7f8c8d'}}>Lô: {t.Inventory?.batchNumber || '-'}</small></td>
+                                            <td>{t.Inventory?.category === 'Nông sản đầu ra' ? <span style={{fontWeight: 'bold', color: '#8e44ad'}}>{t.Inventory?.quality || 'Tiêu chuẩn'}</span> : '-'}</td>
                                             <td><b style={{color: t.type === 'Nhập' ? '#27ae60' : '#e74c3c'}}>{t.type === 'Nhập' ? '+' : '-'}{t.quantity}</b> {t.Inventory?.unit}</td>
                                             <td>
                                                 {activeTab === 'Đã nhập' ? t.supplier : (
@@ -344,9 +349,23 @@ const Inventory = () => {
                             </label>
                             <label style={{display: 'block', marginBottom: '15px'}}><b>Phân loại:</b>
                                 <select className="tool-select" style={{marginTop: '5px'}} value={itemForm.category} onChange={e => setItemForm({...itemForm, category: e.target.value})}>
-                                    <option value="Vật tư đầu vào">Vật tư đầu vào</option><option value="Nông sản đầu ra">Nông sản đầu ra</option><option value="Công cụ dụng cụ">Công cụ dụng cụ</option>
+                                    <option value="Vật tư đầu vào">Vật tư đầu vào</option>
+                                    <option value="Công cụ dụng cụ">Công cụ dụng cụ</option>
+                                    <option value="Nông sản đầu ra">Nông sản đầu ra</option>
                                 </select>
                             </label>
+                            
+                            {itemForm.category === 'Nông sản đầu ra' && (
+                                <label style={{display: 'block', marginBottom: '15px'}}><b>Phân loại chất lượng:</b>
+                                    <select className="tool-select" style={{marginTop: '5px', border: '2px solid #8e44ad'}} value={itemForm.quality || 'Tiêu chuẩn'} onChange={e => setItemForm({...itemForm, quality: e.target.value})}>
+                                        <option value="Tiêu chuẩn">Tiêu chuẩn</option>
+                                        <option value="Loại 1">Loại 1</option>
+                                        <option value="Loại 2">Loại 2</option>
+                                        <option value="Loại 3">Loại 3</option>
+                                        <option value="Hàng dạt">Hàng dạt</option>
+                                    </select>
+                                </label>
+                            )}
                             
                             <label style={{display: 'block', marginBottom: '15px'}}><b>Đơn vị tính:</b>
                                 <select className="tool-select" style={{marginTop: '5px'}} value={itemForm.unit} onChange={e => setItemForm({...itemForm, unit: e.target.value})} required>
@@ -374,7 +393,7 @@ const Inventory = () => {
                                 <input className="tool-input" type="date" style={{marginTop: '5px'}} value={itemForm.expiryDate || ''} onChange={e => setItemForm({...itemForm, expiryDate: e.target.value})}/>
                             </label>
 
-                            <label style={{display: 'block', marginBottom: '10px'}}><b>Đơn giá dự kiến (VNĐ):</b>
+                            <label style={{display: 'block', marginBottom: '10px'}}><b>Đơn giá mặc định (VNĐ):</b>
                                 <input className="tool-input" type="number" style={{marginTop: '5px'}} value={itemForm.unitPrice} onChange={e => setItemForm({...itemForm, unitPrice: e.target.value})}/>
                             </label>
                         </form>
@@ -439,7 +458,11 @@ const Inventory = () => {
                                 <div className="product-row" key={index}>
                                     <select className="tool-select" value={prod.inventoryId} onChange={(e) => handleProductRowChange(index, 'inventoryId', e.target.value)} required>
                                         <option value="">-- Chọn mặt hàng từ kho --</option>
-                                        {items.map(item => <option key={item.id} value={item.id}>{item.itemName} (Lô: {item.batchNumber || '-'}) - Tồn: {item.quantity}</option>)}
+                                        {items.map(item => (
+                                            <option key={item.id} value={item.id}>
+                                                {item.itemName} {item.category === 'Nông sản đầu ra' ? `(${item.quality || 'Tiêu chuẩn'})` : ''} - Tồn: {item.quantity}
+                                            </option>
+                                        ))}
                                     </select>
                                     <input type="number" step="0.1" className="tool-input" placeholder="Số lượng" value={prod.quantity} onChange={(e) => handleProductRowChange(index, 'quantity', e.target.value)} required />
                                     <input type="number" className="tool-input" placeholder="Đơn giá (VNĐ)" value={prod.unitPrice} onChange={(e) => handleProductRowChange(index, 'unitPrice', e.target.value)} />

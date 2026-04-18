@@ -58,72 +58,256 @@ const Auth = ({ onLoginSuccess }) => {
     };
 
     return (
-        <div className="auth-container">
+        <div className="auth-wrapper">
             <style>{`
-                .auth-container { display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; font-family: Arial, sans-serif; }
-                .auth-box { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
-                .auth-title { margin-bottom: 20px; color: #2c3e50; font-size: 24px; }
-                .auth-form { display: flex; flex-direction: column; gap: 15px; }
+                * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
                 
-                .input-group { position: relative; display: flex; align-items: center; }
-                .auth-input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; outline: none; font-size: 16px; box-sizing: border-box; }
-                .eye-icon { position: absolute; right: 10px; cursor: pointer; background: none; border: none; font-size: 20px; user-select: none; }
-                
-                .auth-btn { padding: 12px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.3s; margin-top: 10px; }
-                .auth-btn:hover { background-color: #2ecc71; }
-                .auth-toggle { margin-top: 20px; color: #7f8c8d; font-size: 14px; }
-                .auth-toggle span { color: #27ae60; cursor: pointer; font-weight: bold; }
-                .error-msg { color: #e74c3c; font-size: 14px; margin-bottom: 10px; text-align: left; line-height: 1.4; }
+                .auth-wrapper {
+                    display: flex;
+                    min-height: 100vh;
+                    background-color: #f0f2f5;
+                }
+
+                /* NỬA TRÁI: KHU VỰC HÌNH ẢNH VÀ SLOGAN */
+                .auth-left {
+                    flex: 1;
+                    background: linear-gradient(rgba(44, 62, 80, 0.7), rgba(39, 174, 96, 0.8)), url('${process.env.PUBLIC_URL}/login-bg.jpg') center / cover no-repeat;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    padding: 60px;
+                    color: white;
+                    box-shadow: inset -10px 0 20px rgba(0,0,0,0.1);
+                }
+
+                .brand-title {
+                    font-size: 3.5rem;
+                    font-weight: 800;
+                    margin-bottom: 20px;
+                    letter-spacing: 1px;
+                    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+                }
+
+                .brand-slogan {
+                    font-size: 1.5rem;
+                    line-height: 1.6;
+                    max-width: 80%;
+                    text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+                }
+
+                /* NỬA PHẢI: KHU VỰC FORM ĐĂNG NHẬP */
+                .auth-right {
+                    flex: 1;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    background-color: #ffffff;
+                    padding: 40px;
+                }
+
+                .auth-box {
+                    width: 100%;
+                    max-width: 450px;
+                    padding: 40px;
+                    background: white;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+                    border: 1px solid #eee;
+                }
+
+                .form-header {
+                    text-align: center;
+                    margin-bottom: 30px;
+                }
+
+                .form-header h3 {
+                    color: #2c3e50;
+                    font-size: 24px;
+                    margin-bottom: 10px;
+                }
+
+                .form-header p {
+                    color: #7f8c8d;
+                    font-size: 15px;
+                }
+
+                .auth-form {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 18px;
+                }
+
+                .input-group {
+                    position: relative;
+                    display: flex;
+                    align-items: center;
+                }
+
+                .auth-input {
+                    width: 100%;
+                    padding: 14px 16px;
+                    border: 2px solid #e0e0e0;
+                    border-radius: 8px;
+                    outline: none;
+                    font-size: 16px;
+                    transition: border-color 0.3s;
+                    background-color: #f9f9f9;
+                }
+
+                .auth-input:focus {
+                    border-color: #3498db;
+                    background-color: #fff;
+                }
+
+                .eye-icon {
+                    position: absolute;
+                    right: 15px;
+                    cursor: pointer;
+                    background: none;
+                    border: none;
+                    font-size: 20px;
+                    color: #95a5a6;
+                    outline: none;
+                }
+
+                .auth-btn {
+                    padding: 15px;
+                    background-color: #27ae60;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 18px;
+                    font-weight: bold;
+                    transition: 0.3s;
+                    margin-top: 10px;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+
+                .auth-btn:hover {
+                    background-color: #219a52;
+                    box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+                    transform: translateY(-1px);
+                }
+
+                .error-msg {
+                    background-color: #fdeaea;
+                    color: #e74c3c;
+                    padding: 12px;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    margin-bottom: 20px;
+                    border-left: 4px solid #e74c3c;
+                }
+
+                .auth-toggle {
+                    margin-top: 25px;
+                    text-align: center;
+                    color: #7f8c8d;
+                    font-size: 15px;
+                    border-top: 1px solid #eee;
+                    padding-top: 20px;
+                }
+
+                .auth-toggle span {
+                    color: #3498db;
+                    cursor: pointer;
+                    font-weight: bold;
+                    transition: 0.2s;
+                }
+
+                .auth-toggle span:hover {
+                    color: #2980b9;
+                    text-decoration: underline;
+                }
+
+                /* RESPONSIVE CHO ĐIỆN THOẠI (Dưới 900px) */
+                @media (max-width: 900px) {
+                    .auth-wrapper {
+                        flex-direction: column;
+                    }
+                    .auth-left {
+                        padding: 40px 20px;
+                        text-align: center;
+                        align-items: center;
+                    }
+                    .brand-title {
+                        font-size: 2.5rem;
+                    }
+                    .brand-slogan {
+                        font-size: 1.2rem;
+                        max-width: 100%;
+                    }
+                    .auth-right {
+                        padding: 20px;
+                        align-items: flex-start;
+                        padding-top: 40px;
+                    }
+                    .auth-box {
+                        box-shadow: none;
+                        border: none;
+                        padding: 20px;
+                    }
+                }
             `}</style>
 
-            <div className="auth-box">
-                <h2 className="auth-title">🌱 EASY CO-OP</h2>
-                <h3 style={{marginTop: 0, color: '#7f8c8d', fontSize: '16px'}}>
-                    {isLoginView ? 'Đăng Nhập Hệ Thống' : 'Đăng Ký Tài Khoản'}
-                </h3>
-                
-                {error && <div className="error-msg">⚠️ {error}</div>}
+            <div className="auth-left">
+                <h1 className="brand-title">🌱 EASY CO-OP</h1>
+                <p className="brand-slogan">
+                    Nền tảng số hóa toàn diện, đồng hành cùng sự phát triển bền vững của Hợp tác xã Nông nghiệp.
+                </p>
+            </div>
 
-                <form className="auth-form" onSubmit={handleSubmit}>
-                    {!isLoginView && (
-                        <input className="auth-input" name="fullName" placeholder="Họ và tên đầy đủ (*)" value={formData.fullName} onChange={handleChange} required />
-                    )}
-
-                    {/* Thêm maxLength để giới hạn chỉ được gõ 10 ký tự */}
-                    <input className="auth-input" type="tel" name="phone" placeholder="Số điện thoại (*)" maxLength="10" value={formData.phone} onChange={handleChange} required />
-                    
-                    <div className="input-group">
-                        <input className="auth-input" type={showPassword ? "text" : "password"} name="password" placeholder="Mật khẩu (*)" value={formData.password} onChange={handleChange} required />
-                        <button type="button" className="eye-icon" onClick={() => setShowPassword(!showPassword)}>
-                            {showPassword ? "🙉" : "🙈"} 
-                        </button>
+            <div className="auth-right">
+                <div className="auth-box">
+                    <div className="form-header">
+                        <h3>{isLoginView ? 'Đăng Nhập Hệ Thống' : 'Đăng Ký Tài Khoản'}</h3>
+                        <p>{isLoginView ? 'Nhập số điện thoại và mật khẩu để tiếp tục' : 'Điền thông tin để tham gia Hợp tác xã'}</p>
                     </div>
+                    
+                    {error && <div className="error-msg">⚠️ {error}</div>}
 
-                    {!isLoginView && (
+                    <form className="auth-form" onSubmit={handleSubmit}>
+                        {!isLoginView && (
+                            <input className="auth-input" name="fullName" placeholder="Họ và tên đầy đủ (*)" value={formData.fullName} onChange={handleChange} required />
+                        )}
+
+                        <input className="auth-input" type="tel" name="phone" placeholder="Số điện thoại (*)" maxLength="10" value={formData.phone} onChange={handleChange} required />
+                        
                         <div className="input-group">
-                            <input className="auth-input" type={showConfirmPassword ? "text" : "password"} name="confirmPassword" placeholder="Nhập lại mật khẩu (*)" value={formData.confirmPassword} onChange={handleChange} required />
-                            <button type="button" className="eye-icon" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                                {showConfirmPassword ? "🙉" : "🙈"}
+                            <input className="auth-input" type={showPassword ? "text" : "password"} name="password" placeholder="Mật khẩu (*)" value={formData.password} onChange={handleChange} required />
+                            <button type="button" className="eye-icon" onClick={() => setShowPassword(!showPassword)}>
+                                {showPassword ? "🙉" : "🙈"} 
                             </button>
                         </div>
-                    )}
-                    
-                    <button type="submit" className="auth-btn">
-                        {isLoginView ? 'Đăng Nhập' : 'Tạo Tài Khoản'}
-                    </button>
-                </form>
 
-                <div className="auth-toggle">
-                    {isLoginView ? "Chưa có tài khoản? " : "Đã có tài khoản? "}
-                    <span onClick={() => { 
-                        setIsLoginView(!isLoginView); 
-                        setError(''); 
-                        setFormData({ phone: '', password: '', confirmPassword: '', fullName: '' }); 
-                        setShowPassword(false);
-                        setShowConfirmPassword(false);
-                    }}>
-                        {isLoginView ? "Đăng ký ngay" : "Đăng nhập"}
-                    </span>
+                        {!isLoginView && (
+                            <div className="input-group">
+                                <input className="auth-input" type={showConfirmPassword ? "text" : "password"} name="confirmPassword" placeholder="Nhập lại mật khẩu (*)" value={formData.confirmPassword} onChange={handleChange} required />
+                                <button type="button" className="eye-icon" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                                    {showConfirmPassword ? "🙉" : "🙈"}
+                                </button>
+                            </div>
+                        )}
+                        
+                        <button type="submit" className="auth-btn">
+                            {isLoginView ? 'Đăng Nhập' : 'Tạo Tài Khoản'}
+                        </button>
+                    </form>
+
+                    <div className="auth-toggle">
+                        {isLoginView ? "Chưa có tài khoản? " : "Đã có tài khoản? "}
+                        <span onClick={() => { 
+                            setIsLoginView(!isLoginView); 
+                            setError(''); 
+                            setFormData({ phone: '', password: '', confirmPassword: '', fullName: '' }); 
+                            setShowPassword(false);
+                            setShowConfirmPassword(false);
+                        }}>
+                            {isLoginView ? "Đăng ký ngay" : "Đăng nhập"}
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>

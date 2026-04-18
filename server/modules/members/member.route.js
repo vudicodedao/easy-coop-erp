@@ -4,10 +4,10 @@ const memberController = require('./member.controller');
 
 router.get('/', memberController.getMembers);
 router.post('/', memberController.addMember);
-
-// Thêm route DELETE có chứa ID
 router.delete('/:id', memberController.deleteMember);
-// Thêm route PUT để cập nhật
 router.put('/:id', memberController.updateMember);
+
+// [THÊM MỚI] - Route Khôi phục mật khẩu
+router.put('/:id/reset-password', memberController.resetPassword);
 
 module.exports = router;
