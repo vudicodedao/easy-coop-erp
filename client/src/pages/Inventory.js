@@ -28,8 +28,31 @@ const Inventory = () => {
     const [isTransModalOpen, setIsTransModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
 
-    const initItemForm = { itemName: '', category: 'Vật tư đầu vào', quality: 'Tiêu chuẩn', unit: '', supplier: '', batchNumber: '', expiryDate: '' };
-    const [itemForm, setItemForm] = useState(initItemForm);
+    // ==========================================
+    // CẤU HÌNH ARRAY ĐỂ THÊM NHIỀU DÒNG CÙNG LÚC
+    // ==========================================
+    const initSingleItem = { itemName: '', category: 'Vật tư đầu vào', quality: 'Tiêu chuẩn', unit: '', supplier: '', batchNumber: '', expiryDate: '', unitPrice: '' };
+    const [multiItemForm, setMultiItemForm] = useState([initSingleItem]);
+
+    const handleMultiChange = (index, field, value) => {
+        const newData = [...multiItemForm];
+        newData[index][field] = value;
+        setMultiItemForm(newData);
+    };
+
+    const addMultiRow = () => {
+        if (multiItemForm.length < 20) {
+            setMultiItemForm([...multiItemForm, { ...initSingleItem, category: activeTab === 'Kho Nông sản' ? 'Nông sản đầu ra' : 'Vật tư đầu vào' }]);
+        } else {
+            alert("Chỉ được thêm tối đa 20 mặt hàng mỗi lần để đảm bảo hiệu suất hệ thống!");
+        }
+    };
+
+    const removeMultiRow = (index) => {
+        if (multiItemForm.length > 1) {
+            setMultiItemForm(multiItemForm.filter((_, i) => i !== index));
+        }
+    };
 
     const initTransForm = { 
         type: 'Nhập', creator: currentUser.fullName || '', date: new Date().toISOString().split('T')[0], 
@@ -51,10 +74,9 @@ const Inventory = () => {
         } catch (error) { console.error("Lỗi lấy dữ liệu:", error); }
     };
 
-    useEffect(() => { 
-        fetchData(); 
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab]);
+    // ĐÃ FIX WARNING: Thêm comment bỏ qua cảnh báo của React
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => { fetchData(); }, [activeTab]);
 
     const checkExpiry = (dateString) => {
         if (!dateString) return { text: '-', color: 'black' };
@@ -64,18 +86,37 @@ const Inventory = () => {
         return { text: new Date(dateString).toLocaleDateString('vi-VN'), color: '#27ae60' }; 
     };
 
-    // ĐÃ FIX: Chuyển chuỗi rỗng "" thành null để không bị lỗi Database
+    // ==========================================
+    // LOGIC LƯU HÀNG LOẠT VÀO DATABASE
+    // ==========================================
     const handleItemSubmit = async (e) => {
         e.preventDefault();
-        const dataToSave = { ...itemForm };
-        Object.keys(dataToSave).forEach(key => { if (dataToSave[key] === '') dataToSave[key] = null; });
-
+        
         try {
-            if (editingId) await updateItem(editingId, dataToSave);
-            else await createItem(dataToSave);
-            setIsItemModalOpen(false); setEditingId(null); fetchData();
+            if (editingId) {
+                // SỬA 1 MẶT HÀNG
+                const dataToSave = { ...multiItemForm[0] };
+                Object.keys(dataToSave).forEach(key => { if (dataToSave[key] === '') dataToSave[key] = null; });
+                await updateItem(editingId, dataToSave);
+                alert("Cập nhật mặt hàng thành công!");
+            } else {
+                // THÊM HÀNG LOẠT
+                const validItems = multiItemForm.filter(item => item.itemName.trim() !== '');
+                if (validItems.length === 0) return alert("Vui lòng nhập ít nhất 1 mặt hàng hợp lệ (Phải có tên mặt hàng)!");
+                
+                await Promise.all(validItems.map(item => {
+                    const dataToSave = { ...item };
+                    Object.keys(dataToSave).forEach(key => { if (dataToSave[key] === '') dataToSave[key] = null; });
+                    return createItem(dataToSave);
+                }));
+                alert(`Đã thêm thành công ${validItems.length} mặt hàng vào kho!`);
+            }
+            
+            setIsItemModalOpen(false); 
+            setEditingId(null); 
+            fetchData();
         } catch (error) { 
-            alert("Lỗi lưu hàng hóa! " + (error.response?.data?.message || "")); 
+            alert("Lỗi lưu hàng hóa! " + (error.response?.data?.message || "Vui lòng kiểm tra lại")); 
         }
     };
 
@@ -145,13 +186,15 @@ const Inventory = () => {
         <div className="page-wrapper" style={{ padding: '20px', height: '100%', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             <style>{`
                 * { box-sizing: border-box; }
-                .header-section { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #bdc3c7; padding-bottom: 15px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-                .tab-header { display: flex; gap: 15px; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px; flex-shrink: 0}
-                .tab-btn { background: none; border: none; font-size: 15px; font-weight: bold; color: #7f8c8d; cursor: pointer; padding: 10px 15px; position: relative; transition: 0.3s; border-radius: 8px 8px 0 0;}
+                .header-section { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #bdc3c7; padding-bottom: 15px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; flex-shrink: 0; }
+                
+                .tab-header { display: flex; gap: 15px; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px; flex-shrink: 0; overflow-x: auto; white-space: nowrap; }
+                .tab-btn { background: none; border: none; font-size: 15px; font-weight: bold; color: #7f8c8d; cursor: pointer; padding: 10px 15px; position: relative; transition: 0.3s; border-radius: 8px 8px 0 0; flex-shrink: 0; }
                 .tab-btn:hover { color: #3498db; background: #f0f8ff;}
                 .tab-btn.active { color: #2980b9; background: #eaf2f8;}
                 .tab-btn.active::after { content: ''; position: absolute; bottom: -12px; left: 0; width: 100%; height: 3px; background-color: #3498db; border-radius: 3px; }
-                .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; align-items: center; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+                
+                .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; align-items: center; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-shrink: 0; }
                 .tool-input, .tool-select { padding: 8px 12px; border: 1px solid #dcdde1; border-radius: 4px; outline: none; width: 100%; }
                 .btn { padding: 10px 16px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 5px; justify-content: center; }
                 .btn-primary { background: #3498db; color: white; } .btn-primary:hover { background: #2980b9; }
@@ -159,19 +202,44 @@ const Inventory = () => {
                 .btn-danger { background: #e74c3c; color: white; } .btn-danger:hover { background: #c0392b; }
                 .btn-outline { background: white; color: #333; border: 1px solid #ccc; }
                 
-                .card-container { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; margin-bottom: 20px; }
-                .table-scroll { width: 100%; overflow: auto; max-height: 80vh;}
+                .card-container { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; flex: 1; min-height: 0; margin-bottom: 10px; }
+                .table-scroll { width: 100%; flex: 1; overflow: auto; }
+                
                 table { width: 100%; border-collapse: collapse; min-width: 1050px; }
                 th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #f1f2f6; }
                 th { background: #f8f9fa; color: #2c3e50; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1); }
                 
                 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 10px; }
-                .modal-content { background: white; width: 100%; max-width: 800px; max-height: 90vh; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
-                .modal-body { padding: 20px; overflow-y: auto; overflow-x: hidden; flex: 1; }
+                .modal-content { background: white; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; transition: max-width 0.3s ease; }
+                .modal-body { padding: 20px; overflow-y: auto; overflow-x: hidden; flex: 1; max-height: 75vh; }
                 .modal-footer { padding: 15px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px; background: #f8f9fa; }
                 
                 .product-row { display: grid; grid-template-columns: 3fr 1fr 1.5fr 40px; gap: 10px; align-items: center; margin-bottom: 10px; background: #f8f9fa; padding: 12px; border-radius: 6px; border: 1px solid #e0e0e0; }
                 
+                /* ĐÃ FIX LẠI BẢNG NHẬP (Căn đều và ép nút X sang phải) */
+                .bulk-row { 
+                    display: grid; 
+                    grid-template-columns: 2fr 1.3fr 1fr 1fr 1.2fr 1.2fr 1.2fr 1.5fr 40px; 
+                    gap: 12px; 
+                    align-items: center; 
+                    margin-bottom: 10px; 
+                    padding: 10px 15px; 
+                    background: #f8f9fa; 
+                    border-radius: 6px; 
+                    border: 1px solid #e0e0e0; 
+                    width: 100%;
+                }
+                .bulk-header { 
+                    display: grid; 
+                    grid-template-columns: 2fr 1.3fr 1fr 1fr 1.2fr 1.2fr 1.2fr 1.5fr 40px; 
+                    gap: 12px; 
+                    font-weight: bold; 
+                    color: #2c3e50; 
+                    margin-bottom: 10px; 
+                    padding: 0 15px; 
+                    width: 100%;
+                }
+
                 @media (max-width: 768px) {
                     .page-wrapper { padding: 15px !important; }
                     .header-section { flex-direction: column; align-items: flex-start !important; gap: 15px; }
@@ -179,11 +247,10 @@ const Inventory = () => {
                     .header-section .btn { width: 100%; justify-content: center; margin: 0 !important; padding: 12px; }
                     .toolbar { flex-direction: column; align-items: stretch !important; gap: 10px; padding: 15px 10px; }
                     .toolbar > * { width: 100% !important; margin: 0 !important; }
-                    .form-grid, .modal-body > div, .product-row { grid-template-columns: 1fr !important; gap: 15px; }
+                    .form-grid, .modal-body > div, .product-row, .bulk-row { grid-template-columns: 1fr !important; gap: 10px; }
+                    .bulk-header { display: none; }
                     .form-group-modal { flex-direction: column; align-items: flex-start; }
                     .form-label-modal { width: 100%; margin-bottom: 5px; }
-                    .tab-header { overflow-x: auto; white-space: nowrap; padding-bottom: 5px; width: 100%; }
-                    .tab-btn { flex-shrink: 0; }
                 }
             `}</style>
 
@@ -191,7 +258,11 @@ const Inventory = () => {
                 <h2 style={{ margin: 0, color: '#2c3e50', display: 'flex', alignItems: 'center' }}>📦 Quản Trị Kho Hàng</h2>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     {canManageCategory && (
-                        <button className="btn btn-outline" onClick={() => { setItemForm({...initItemForm, category: activeTab === 'Kho Nông sản' ? 'Nông sản đầu ra' : 'Vật tư đầu vào'}); setEditingId(null); setIsItemModalOpen(true); }}>
+                        <button className="btn btn-outline" onClick={() => { 
+                            setMultiItemForm([{...initSingleItem, category: activeTab === 'Kho Nông sản' ? 'Nông sản đầu ra' : 'Vật tư đầu vào'}]); 
+                            setEditingId(null); 
+                            setIsItemModalOpen(true); 
+                        }}>
                             ➕ Thêm danh mục
                         </button>
                     )}
@@ -215,6 +286,7 @@ const Inventory = () => {
                 <button className={`tab-btn ${activeTab === 'Đã xuất' ? 'active' : ''}`} onClick={() => setActiveTab('Đã xuất')}>📤 Lịch sử Đã Xuất</button>
             </div>
 
+            {/* HIỂN THỊ KHO HÀNG */}
             {(activeTab === 'Kho Vật tư' || activeTab === 'Kho Nông sản') && (
                 <>
                     <div className="toolbar">
@@ -267,11 +339,11 @@ const Inventory = () => {
                                             <td><span style={{background: '#ecf0f1', padding: '2px 6px', borderRadius: '4px', fontSize: '12px'}}>{item.batchNumber || '-'}</span></td>
                                             <td style={{color: expiryInfo.color, fontWeight: 'bold', fontSize: '13px'}}>{expiryInfo.text}</td>
                                             
-                                            <td>{new Intl.NumberFormat('vi-VN').format(item.unitPrice)} đ</td>
+                                            <td>{new Intl.NumberFormat('vi-VN').format(item.unitPrice || 0)} đ</td>
                                             <td>{item.supplier}</td>
                                             {canManageCategory && (
                                                 <td>
-                                                    <button onClick={() => { setItemForm(item); setEditingId(item.id); setIsItemModalOpen(true); }} style={{border: 'none', background: 'none', cursor:'pointer', marginRight: '10px'}}>✏️</button>
+                                                    <button onClick={() => { setMultiItemForm([{...item}]); setEditingId(item.id); setIsItemModalOpen(true); }} style={{border: 'none', background: 'none', cursor:'pointer', marginRight: '10px'}}>✏️</button>
                                                     <button onClick={() => handleDeleteItem(item.id)} style={{border: 'none', background: 'none', cursor:'pointer'}}>🗑️</button>
                                                 </td>
                                             )}
@@ -284,6 +356,7 @@ const Inventory = () => {
                 </>
             )}
 
+            {/* HIỂN THỊ LỊCH SỬ NHẬP XUẤT */}
             {(activeTab === 'Đã nhập' || activeTab === 'Đã xuất') && (
                 <>
                     <div className="toolbar">
@@ -336,66 +409,121 @@ const Inventory = () => {
                 </>
             )}
 
+            {/* MODAL THÊM / SỬA DANH MỤC HÀNG HÓA */}
             {isItemModalOpen && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{maxWidth: '500px'}}>
-                        <div className="modal-header" style={{padding: '15px 20px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between'}}>
-                            <h3 style={{margin: 0}}>{editingId ? "Sửa Danh Mục" : "Tạo Danh Mục Mới"}</h3>
-                            <button style={{border: 'none', background: 'none', fontSize: '18px', cursor: 'pointer'}} onClick={() => setIsItemModalOpen(false)}>✕</button>
+                    <div className="modal-content" style={{ width: '95%', maxWidth: editingId ? '500px' : '1300px' }}>
+                        <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', borderBottom: '1px solid #eee' }}>
+                            <h3 style={{margin: 0}}>{editingId ? "Sửa Danh Mục" : `Tạo Danh Mục Mới (${multiItemForm.length}/20)`}</h3>
+                            <button onClick={() => setIsItemModalOpen(false)} style={{border: 'none', background: 'none', fontSize: '18px', cursor: 'pointer'}} >✕</button>
                         </div>
                         <form id="itemForm" onSubmit={handleItemSubmit} className="modal-body">
-                            <label style={{display: 'block', marginBottom: '15px'}}><b>Tên mặt hàng:</b>
-                                <input className="tool-input" style={{marginTop: '5px'}} value={itemForm.itemName} onChange={e => setItemForm({...itemForm, itemName: e.target.value})} required/>
-                            </label>
-                            <label style={{display: 'block', marginBottom: '15px'}}><b>Phân loại:</b>
-                                <select className="tool-select" style={{marginTop: '5px'}} value={itemForm.category} onChange={e => setItemForm({...itemForm, category: e.target.value})}>
-                                    <option value="Vật tư đầu vào">Vật tư đầu vào</option>
-                                    <option value="Công cụ dụng cụ">Công cụ dụng cụ</option>
-                                    <option value="Nông sản đầu ra">Nông sản đầu ra</option>
-                                </select>
-                            </label>
                             
-                            {itemForm.category === 'Nông sản đầu ra' && (
-                                <label style={{display: 'block', marginBottom: '15px'}}><b>Phân loại chất lượng:</b>
-                                    <select className="tool-select" style={{marginTop: '5px', border: '2px solid #8e44ad'}} value={itemForm.quality || 'Tiêu chuẩn'} onChange={e => setItemForm({...itemForm, quality: e.target.value})}>
-                                        <option value="Tiêu chuẩn">Tiêu chuẩn</option>
-                                        <option value="Loại 1">Loại 1</option>
-                                        <option value="Loại 2">Loại 2</option>
-                                        <option value="Loại 3">Loại 3</option>
-                                        <option value="Hàng dạt">Hàng dạt</option>
-                                    </select>
-                                </label>
-                            )}
-                            
-                            <label style={{display: 'block', marginBottom: '15px'}}><b>Đơn vị tính:</b>
-                                <select className="tool-select" style={{marginTop: '5px'}} value={itemForm.unit} onChange={e => setItemForm({...itemForm, unit: e.target.value})} required>
-                                    <option value="" disabled>-- Chọn Đơn vị --</option>
-                                    <option value="kg">Kilogram (kg)</option>
-                                    <option value="tấn">Tấn</option>
-                                    <option value="tạ">Tạ</option>
-                                    <option value="yến">Yến</option>
-                                    <option value="bao">Bao / Cùi</option>
-                                    <option value="lít">Lít (l)</option>
-                                    <option value="chai">Chai / Lọ</option>
-                                    <option value="hộp">Hộp / Thùng</option>
-                                    <option value="cây">Cây (Giống cây)</option>
-                                    <option value="con">Con (Vật nuôi)</option>
-                                    <option value="cái">Cái / Chiếc</option>
-                                    <option value="gói">Gói / Túi</option>
-                                </select>
-                            </label>
-                            
-                            <label style={{display: 'block', marginBottom: '15px'}}><b>Số Lô hàng:</b>
-                                <input className="tool-input" style={{marginTop: '5px'}} value={itemForm.batchNumber || ''} onChange={e => setItemForm({...itemForm, batchNumber: e.target.value})}/>
-                            </label>
-                            
-                            <label style={{display: 'block', marginBottom: '15px'}}><b>Hạn sử dụng:</b>
-                                <input className="tool-input" type="date" style={{marginTop: '5px'}} value={itemForm.expiryDate || ''} onChange={e => setItemForm({...itemForm, expiryDate: e.target.value})}/>
-                            </label>
+                            {editingId ? (
+                                // ---------------- FORM SỬA (GIỮ NGUYÊN GIAO DIỆN DỌC DỄ NHÌN) ----------------
+                                <>
+                                    <label style={{display: 'block', marginBottom: '15px'}}><b>Tên mặt hàng:</b>
+                                        <input className="tool-input" style={{marginTop: '5px'}} value={multiItemForm[0].itemName} onChange={e => handleMultiChange(0, 'itemName', e.target.value)} required/>
+                                    </label>
+                                    <label style={{display: 'block', marginBottom: '15px'}}><b>Phân loại:</b>
+                                        <select className="tool-select" style={{marginTop: '5px'}} value={multiItemForm[0].category} onChange={e => handleMultiChange(0, 'category', e.target.value)}>
+                                            <option value="Vật tư đầu vào">Vật tư đầu vào</option>
+                                            <option value="Công cụ dụng cụ">Công cụ dụng cụ</option>
+                                            <option value="Nông sản đầu ra">Nông sản đầu ra</option>
+                                        </select>
+                                    </label>
+                                    
+                                    {/* Khóa/Làm mờ nếu không phải nông sản */}
+                                    <label style={{display: 'block', marginBottom: '15px'}}><b>Phân loại chất lượng:</b>
+                                        <select className="tool-select" style={{marginTop: '5px', opacity: multiItemForm[0].category !== 'Nông sản đầu ra' ? 0.3 : 1, border: multiItemForm[0].category === 'Nông sản đầu ra' ? '2px solid #8e44ad' : ''}} value={multiItemForm[0].quality || 'Tiêu chuẩn'} onChange={e => handleMultiChange(0, 'quality', e.target.value)} disabled={multiItemForm[0].category !== 'Nông sản đầu ra'}>
+                                            <option value="Tiêu chuẩn">Tiêu chuẩn</option>
+                                            <option value="Loại 1">Loại 1</option>
+                                            <option value="Loại 2">Loại 2</option>
+                                            <option value="Loại 3">Loại 3</option>
+                                            <option value="Hàng dạt">Hàng dạt</option>
+                                        </select>
+                                    </label>
+                                    
+                                    <label style={{display: 'block', marginBottom: '15px'}}><b>Đơn vị tính:</b>
+                                        <select className="tool-select" style={{marginTop: '5px'}} value={multiItemForm[0].unit} onChange={e => handleMultiChange(0, 'unit', e.target.value)} required>
+                                            <option value="" disabled>-- Chọn Đơn vị --</option>
+                                            <option value="kg">kg</option><option value="tấn">Tấn</option><option value="tạ">Tạ</option><option value="yến">Yến</option><option value="bao">Bao / Cùi</option><option value="lít">Lít</option><option value="chai">Chai / Lọ</option><option value="hộp">Hộp / Thùng</option><option value="cây">Cây giống</option><option value="con">Con</option><option value="cái">Cái / Chiếc</option><option value="gói">Gói / Túi</option>
+                                        </select>
+                                    </label>
+                                    
+                                    <label style={{display: 'block', marginBottom: '15px'}}><b>Số Lô hàng:</b>
+                                        <input className="tool-input" style={{marginTop: '5px'}} value={multiItemForm[0].batchNumber || ''} onChange={e => handleMultiChange(0, 'batchNumber', e.target.value)}/>
+                                    </label>
+                                    
+                                    <label style={{display: 'block', marginBottom: '15px'}}><b>Hạn sử dụng:</b>
+                                        <input className="tool-input" type="date" style={{marginTop: '5px'}} value={multiItemForm[0].expiryDate || ''} onChange={e => handleMultiChange(0, 'expiryDate', e.target.value)}/>
+                                    </label>
 
-                            <label style={{display: 'block', marginBottom: '10px'}}><b>Đơn giá mặc định (VNĐ):</b>
-                                <input className="tool-input" type="number" style={{marginTop: '5px'}} value={itemForm.unitPrice} onChange={e => setItemForm({...itemForm, unitPrice: e.target.value})}/>
-                            </label>
+                                    <label style={{display: 'block', marginBottom: '15px'}}><b>Nhà cung cấp:</b>
+                                        <input className="tool-input" style={{marginTop: '5px'}} value={multiItemForm[0].supplier || ''} onChange={e => handleMultiChange(0, 'supplier', e.target.value)}/>
+                                    </label>
+
+                                    <label style={{display: 'block', marginBottom: '10px'}}><b>Đơn giá gốc (VNĐ):</b>
+                                        <input className="tool-input" type="number" style={{marginTop: '5px'}} value={multiItemForm[0].unitPrice || ''} onChange={e => handleMultiChange(0, 'unitPrice', e.target.value)}/>
+                                    </label>
+                                </>
+                            ) : (
+                                // ---------------- FORM THÊM HÀNG LOẠT (GIAO DIỆN NGANG TỐI ƯU CỘT & CĂN LỀ) ----------------
+                                <div style={{overflowX: 'auto', paddingBottom: '10px'}}>
+                                    <div style={{minWidth: '1100px', width: '100%'}}>
+                                        <div className="bulk-header">
+                                            <div>Tên mặt hàng (*)</div>
+                                            <div>Phân loại</div>
+                                            <div>Chất lượng</div>
+                                            <div>Đơn vị (*)</div>
+                                            <div>Số lô</div>
+                                            <div>Hạn sử dụng</div>
+                                            <div>Đơn giá (VNĐ)</div>
+                                            <div>Nhà cung cấp</div>
+                                            <div></div> {/* Cột trống cho nút Xóa */}
+                                        </div>
+                                        
+                                        {multiItemForm.map((item, index) => (
+                                            <div className="bulk-row" key={index}>
+                                                <input className="tool-input" placeholder="Tên sản phẩm..." value={item.itemName} onChange={e => handleMultiChange(index, 'itemName', e.target.value)} required />
+                                                
+                                                <select className="tool-select" value={item.category} onChange={e => handleMultiChange(index, 'category', e.target.value)}>
+                                                    <option value="Vật tư đầu vào">Vật tư đầu vào</option>
+                                                    <option value="Công cụ dụng cụ">Công cụ dụng cụ</option>
+                                                    <option value="Nông sản đầu ra">Nông sản đầu ra</option>
+                                                </select>
+
+                                                {/* Nút Chất lượng sẽ mờ đi nếu không phải Nông sản */}
+                                                <select className="tool-select" value={item.quality || 'Tiêu chuẩn'} onChange={e => handleMultiChange(index, 'quality', e.target.value)} disabled={item.category !== 'Nông sản đầu ra'} style={{opacity: item.category !== 'Nông sản đầu ra' ? 0.3 : 1, border: item.category === 'Nông sản đầu ra' ? '2px solid #8e44ad' : ''}}>
+                                                    <option value="Tiêu chuẩn">Tiêu chuẩn</option>
+                                                    <option value="Loại 1">Loại 1</option>
+                                                    <option value="Loại 2">Loại 2</option>
+                                                    <option value="Loại 3">Loại 3</option>
+                                                    <option value="Hàng dạt">Hàng dạt</option>
+                                                </select>
+
+                                                <select className="tool-select" value={item.unit} onChange={e => handleMultiChange(index, 'unit', e.target.value)} required>
+                                                    <option value="" disabled>- Chọn -</option>
+                                                    <option value="kg">kg</option><option value="tấn">Tấn</option><option value="tạ">Tạ</option><option value="yến">Yến</option><option value="bao">Bao</option><option value="lít">Lít</option><option value="chai">Chai</option><option value="hộp">Hộp</option><option value="cây">Cây</option><option value="con">Con</option><option value="cái">Cái</option><option value="gói">Gói</option>
+                                                </select>
+
+                                                <input className="tool-input" placeholder="Mã lô" value={item.batchNumber || ''} onChange={e => handleMultiChange(index, 'batchNumber', e.target.value)} />
+                                                <input className="tool-input" type="date" value={item.expiryDate || ''} onChange={e => handleMultiChange(index, 'expiryDate', e.target.value)} />
+                                                <input className="tool-input" type="number" placeholder="Giá..." value={item.unitPrice || ''} onChange={e => handleMultiChange(index, 'unitPrice', e.target.value)} />
+                                                <input className="tool-input" placeholder="Nhà CC..." value={item.supplier || ''} onChange={e => handleMultiChange(index, 'supplier', e.target.value)} />
+                                                
+                                                <button type="button" onClick={() => removeMultiRow(index)} style={{background: '#ffeaa7', border: '1px solid #fdcb6e', color: '#d63031', cursor: 'pointer', fontSize: '16px', width: '100%', height: '100%', minHeight: '38px', borderRadius: '4px', fontWeight: 'bold'}} title="Xóa dòng này">✕</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    
+                                    {multiItemForm.length < 20 && (
+                                        <button type="button" className="btn btn-outline" style={{borderStyle: 'dashed', color: '#27ae60', borderColor: '#27ae60', width: '100%', marginTop: '10px'}} onClick={addMultiRow}>
+                                            + Thêm một dòng (Đang có: {multiItemForm.length}/20)
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                         </form>
                         <div className="modal-footer">
                             <button className="btn btn-primary" form="itemForm" type="submit">Lưu Danh Mục</button>
@@ -404,6 +532,7 @@ const Inventory = () => {
                 </div>
             )}
 
+            {/* MODAL LẬP PHIẾU NHẬP / XUẤT */}
             {isTransModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">
