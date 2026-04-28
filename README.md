@@ -1,4 +1,4 @@
-# 🌱 EASY CO-OP - Hệ thống ERP Quản trị Hợp tác xã Nông nghiệp
+# 🌱  EASY CO-OP - Hệ thống ERP Quản trị Hợp tác xã Nông nghiệp
 
 EASY CO-OP là một giải pháp phần mềm quản trị doanh nghiệp (ERP) toàn diện, được thiết kế chuyên biệt để giải quyết các bài toán vận hành thực tế tại các Hợp tác xã Nông nghiệp. Hệ thống giúp số hóa toàn bộ quy trình từ quản lý nhân sự, kho bãi, quy trình canh tác cho đến khâu thu mua, bán hàng và quyết toán công nợ phức tạp.
 
