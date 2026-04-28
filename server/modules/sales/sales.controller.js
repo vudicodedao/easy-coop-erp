@@ -5,7 +5,7 @@ const getOrders = async (req, res) => {
         const orders = await salesService.getAllOrders();
         res.status(200).json(orders);
     } catch (error) {
-        res.status(500).json({ message: "Lỗi lấy danh sách đơn hàng" });
+        res.status(500).json({ message: error.message || "Lỗi lấy danh sách đơn hàng" });
     }
 };
 
@@ -23,7 +23,8 @@ const updateStatus = async (req, res) => {
         await salesService.updateOrderStatus(req.params.id, req.body);
         res.status(200).json({ message: "Cập nhật trạng thái thành công" });
     } catch (error) {
-        res.status(500).json({ message: "Lỗi cập nhật đơn hàng" });
+        // [ĐÃ FIX]: Không che giấu lỗi nữa, xuất thẳng câu lỗi từ Service ra màn hình
+        res.status(500).json({ message: error.message || "Lỗi cập nhật đơn hàng" });
     }
 };
 
@@ -32,7 +33,7 @@ const removeOrder = async (req, res) => {
         await salesService.deleteOrder(req.params.id);
         res.status(200).json({ message: "Đã xóa đơn hàng" });
     } catch (error) {
-        res.status(500).json({ message: "Lỗi khi xóa" });
+        res.status(500).json({ message: error.message || "Lỗi khi xóa" });
     }
 };
 

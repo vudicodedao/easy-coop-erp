@@ -105,7 +105,6 @@ const Members = () => {
         } 
     };
 
-    // [THÊM MỚI] - Xử lý nút Reset Mật Khẩu (Dành cho Giám đốc)
     const handleResetPassword = async (id, name) => {
         if (window.confirm(`🔐 Bạn có chắc chắn muốn KHÔI PHỤC MẬT KHẨU của [${name}] về mặc định (Số điện thoại) không?`)) {
             try {
@@ -117,7 +116,6 @@ const Members = () => {
         }
     };
 
-    // [THÊM MỚI] - Xử lý Gửi Form Đổi Mật Khẩu (Dành cho Cá nhân)
     const handlePasswordSubmit = async (e) => {
         e.preventDefault();
         if (pwdForm.newPassword !== pwdForm.confirmPassword) {
@@ -140,11 +138,9 @@ const Members = () => {
     const handleExportExcel = () => { 
         const dataToExport = filteredMembers.map((m, index) => ({ 
             "STT": index + 1, "Họ tên": m.name, "Chức vụ": m.role || 'Xã viên', 
-            "Số CCCD": m.cccd || '', "Số điện thoại": m.phone, "Email": m.email || '', 
-            "Địa chỉ": m.address || '', "Cây trồng/Vật nuôi": m.mainCrop || '', 
-            "Diện tích (ha)": m.landArea || 0, "Vốn góp (VNĐ)": m.capital || 0, 
+            "Số điện thoại": m.phone, "Vốn góp (VNĐ)": m.capital || 0, 
             "Nợ Vật tư": m.debtMaterial || 0, "Nợ Thu mua": m.debtPurchase || 0, "Ứng trước": m.advancePayment || 0,
-            "Ngày gia nhập": m.joinDate || '', "Trạng thái": m.status 
+            "Trạng thái": m.status 
         }));
         const worksheet = XLSX.utils.json_to_sheet(dataToExport); const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "DanhSachThanhVien"); XLSX.writeFile(workbook, "Danh_Sach_Thanh_Vien.xlsx");
@@ -154,9 +150,6 @@ const Members = () => {
         member.name.toLowerCase().includes(searchTerm.toLowerCase()) || (member.phone && member.phone.includes(searchTerm))
     );
 
-    // ==========================================
-    // GIAO DIỆN 1: HỒ SƠ CÁ NHÂN
-    // ==========================================
     if (isProfileView) {
         const handleMyProfileChange = (e) => setMyProfileData({ ...myProfileData, [e.target.name]: e.target.value });
         const handleMyProfileSubmit = async (e) => {
@@ -305,7 +298,6 @@ const Members = () => {
                     </form>
                 </div>
 
-                {/* MODAL ĐỔI MẬT KHẨU CỦA NGƯỜI DÙNG */}
                 {isChangePwdModalOpen && (
                     <div className="modal-overlay">
                         <div className="modal-content" style={{ maxWidth: '450px' }}>
@@ -404,14 +396,18 @@ const Members = () => {
                 <div className="table-scroll">
                     <table>
                         <colgroup>
-                            <col style={{ width: '18%' }} /><col style={{ width: '12%' }} /><col style={{ width: '13%' }} /><col style={{ width: '10%' }} /><col style={{ width: '12%' }} /><col style={{ width: '14%' }} /><col style={{ width: '10%' }} /><col style={{ width: '11%' }} />
+                            {/* [ĐÃ FIX]: Gỡ bỏ 2 cột Cây trồng, Diện tích. Nới rộng Họ Tên và Công nợ */}
+                            <col style={{ width: '25%' }} />
+                            <col style={{ width: '15%' }} />
+                            <col style={{ width: '15%' }} />
+                            <col style={{ width: '20%' }} />
+                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '13%' }} />
                         </colgroup>
                         <thead>
                             <tr>
                                 <th>Họ tên</th>
                                 <th>Điện thoại</th>
-                                <th>Cây trồng/Vật nuôi</th>
-                                <th>Diện tích (ha)</th>
                                 <th>Vốn góp (VNĐ)</th>
                                 <th>Chi tiết Công nợ (VNĐ)</th>
                                 <th>Trạng thái</th>
@@ -421,15 +417,20 @@ const Members = () => {
                         <tbody>
                             {filteredMembers.map((m) => (
                                 <tr key={m.id}>
-                                    <td style={{ display: 'flex', alignItems: 'center' }}>
-                                        {m.portraitUrl ? <img src={m.portraitUrl} alt="avatar" className="avatar-thumbnail" /> : <div className="avatar-thumbnail" style={{background:'#eee', display:'flex', justifyContent:'center', alignItems:'center', fontSize:'10px'}}>Trống</div>}
-                                        <div>
-                                            <b>{m.name}</b><br/><small style={{color: '#e67e22', fontWeight: 'bold'}}>{m.role || 'Xã viên'}</small>
+                                    <td>
+                                        <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                                            {m.portraitUrl ? (
+                                                <img src={m.portraitUrl} alt="avatar" className="avatar-thumbnail" />
+                                            ) : (
+                                                <div className="avatar-thumbnail" style={{background:'#eee', display:'flex', justifyContent:'center', alignItems:'center', fontSize:'10px'}}>Trống</div>
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <b style={{ display: 'block', wordWrap: 'break-word' }}>{m.name}</b>
+                                                <small style={{color: '#e67e22', fontWeight: 'bold'}}>{m.role || 'Xã viên'}</small>
+                                            </div>
                                         </div>
                                     </td>
                                     <td>{m.phone}</td>
-                                    <td>{m.mainCrop}</td>
-                                    <td>{m.landArea}</td>
                                     <td>{new Intl.NumberFormat('vi-VN').format(m.capital || 0)}</td>
                                     <td>
                                         <div style={{fontSize: '12px', lineHeight: '1.4'}}>
@@ -441,7 +442,6 @@ const Members = () => {
                                     <td><span className="badge" style={{backgroundColor: m.status === 'Hoạt động' ? '#e6f4ea' : '#fce8e6', color: m.status === 'Hoạt động' ? '#1e8e3e' : '#d93025'}}>{m.status}</span></td>
                                     <td>
                                         <button className="icon-btn" onClick={() => handleEditClick(m)} title="Sửa hồ sơ">✏️</button>
-                                        {/* NÚT KHÔI PHỤC MẬT KHẨU */}
                                         <button className="icon-btn" onClick={() => handleResetPassword(m.id, m.name)} title="Khôi phục Mật khẩu">🔄</button>
                                         <button className="icon-btn" onClick={() => handleDelete(m.id)} title="Xóa">🗑️</button>
                                     </td>

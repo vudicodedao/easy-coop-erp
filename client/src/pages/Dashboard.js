@@ -16,6 +16,7 @@ const Dashboard = () => {
     });
     
     const [capitalData, setCapitalData] = useState([]);
+    const [totalCapital, setTotalCapital] = useState(0); // [THÊM MỚI] LƯU TỔNG VỐN
 
     useEffect(() => {
         if (!hasAccess) return; 
@@ -35,6 +36,10 @@ const Dashboard = () => {
                     .sort((a, b) => b.value - a.value); 
                 
                 setCapitalData(capData);
+                
+                // Tính tổng vốn góp
+                const totalCap = capData.reduce((sum, item) => sum + item.value, 0);
+                setTotalCapital(totalCap);
 
             } catch (error) {
                 console.error("Lỗi tải số liệu tổng quan", error);
@@ -81,6 +86,7 @@ const Dashboard = () => {
                 .kpi-card.orange { border-left-color: #e67e22; }
                 .kpi-card.red { border-left-color: #e74c3c; }
                 .kpi-card.purple { border-left-color: #9b59b6; }
+                .kpi-card.dark { border-left-color: #34495e; } /* Thêm màu cho Vốn góp */
                 
                 .kpi-title { font-size: 12px; color: #7f8c8d; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; }
                 .kpi-value { font-size: 24px; font-weight: bold; color: #2c3e50; }
@@ -88,14 +94,12 @@ const Dashboard = () => {
                 
                 .charts-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex: 1; min-height: 450px; }
                 
-                /* ĐÃ FIX: Tăng min-height để không đè chữ, thiết lập Flexbox để kiểm soát cuộn */
                 .chart-box { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; flex-direction: column; min-height: 450px; max-height: 450px; }
                 .chart-title { margin-top: 0; color: #34495e; font-size: 16px; border-bottom: 1px dashed #eee; padding-bottom: 10px; margin-bottom: 15px; flex-shrink: 0; }
                 
                 .alert-item { padding: 12px 10px; border-bottom: 1px solid #f1f2f6; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;}
                 .alert-item:hover { background: #fdfefe; }
 
-                /* Tùy chỉnh thanh cuộn cho hộp cảnh báo */
                 .custom-scroll::-webkit-scrollbar { width: 6px; }
                 .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
                 .custom-scroll::-webkit-scrollbar-thumb { background: #bdc3c7; border-radius: 4px; }
@@ -119,6 +123,10 @@ const Dashboard = () => {
                 <div className="kpi-card green">
                     <div className="kpi-title">💰 Tồn Quỹ Tiền Mặt</div>
                     <div className="kpi-value">{Number(stats.fundBalance).toLocaleString()} <span style={{fontSize: '14px', color:'#7f8c8d'}}>đ</span></div>
+                </div>
+                <div className="kpi-card dark">
+                    <div className="kpi-title">💎 Tổng Vốn Góp (Chủ Sở Hữu)</div>
+                    <div className="kpi-value">{Number(totalCapital).toLocaleString()} <span style={{fontSize: '14px', color:'#7f8c8d'}}>đ</span></div>
                 </div>
                 <div className="kpi-card orange">
                     <div className="kpi-title">📥 Tổng Nợ Phải Thu (Xã viên nợ)</div>
@@ -146,7 +154,7 @@ const Dashboard = () => {
 
             <div className="charts-wrapper">
                 
-                {/* 1. Biểu đồ Cột - ĐÃ FIX: Tăng bottom lề và height XAxis lên 80 để không bị cụt chữ */}
+                {/* 1. Biểu đồ Cột */}
                 <div className="chart-box">
                     <h3 className="chart-title">📈 Toàn Cảnh Tài Chính & Công Nợ</h3>
                     <div style={{ flex: 1, width: '100%' }}>
@@ -162,7 +170,7 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* 2. Biểu đồ Tròn VỐN GÓP - ĐÃ FIX: Căn lại khoảng cách Legend */}
+                {/* 2. Biểu đồ Tròn VỐN GÓP */}
                 <div className="chart-box">
                     <h3 className="chart-title">💎 Tỷ Trọng Vốn Góp Xã Viên</h3>
                     <div style={{ flex: 1, width: '100%' }}>
@@ -202,7 +210,7 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* 4. Bảng Cảnh báo - ĐÃ FIX: Chỉ cuộn danh sách bên trong, giữ nguyên Tiêu đề ở trên */}
+                {/* 4. Bảng Cảnh báo */}
                 <div className="chart-box">
                     <h3 className="chart-title">⚠️ Cảnh Báo Thông Minh</h3>
                     <div className="custom-scroll" style={{ flex: 1, overflowY: 'auto', paddingRight: '5px' }}>

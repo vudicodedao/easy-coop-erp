@@ -7,6 +7,8 @@ import * as XLSX from 'xlsx';
 const Sales = () => {
     const currentUser = JSON.parse(localStorage.getItem('user')) || {};
     const role = currentUser.role;
+    // [THÊM MỚI] Biến kiểm tra Quyền Giám Đốc
+    const isAdmin = role === 'Giám đốc'; 
     const canCreate = ['Giám đốc', 'Kế toán'].includes(role); 
     const canUpdateStatus = ['Giám đốc', 'Kế toán'].includes(role);
     const canDelete = role === 'Giám đốc'; 
@@ -18,7 +20,6 @@ const Sales = () => {
     const [filterOrderType, setFilterOrderType] = useState('All');
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // THÊM: marginRate và vatRate vào Form
     const initialForm = { 
         orderType: 'Bán hàng', customerName: '', phone: '', memberPhone: '', 
         status: 'Chờ xử lý', paymentStatus: 'Chưa thanh toán', paymentMethod: 'Tiền mặt', 
@@ -61,9 +62,6 @@ const Sales = () => {
     const addProductRow = () => setSelectedProducts([...selectedProducts, { productId: '', quantity: 1, price: 0 }]);
     const removeProductRow = (index) => setSelectedProducts(selectedProducts.filter((_, i) => i !== index));
 
-    // =====================================
-    // HÀM TÍNH TOÁN (Lõi Kế toán)
-    // =====================================
     const getCalculations = () => {
         const subTotal = selectedProducts.reduce((sum, item) => sum + (item.quantity * item.price), 0);
         const marginValue = formData.orderType === 'Bán hàng' ? (subTotal * (formData.marginRate || 0) / 100) : 0;
@@ -234,28 +232,46 @@ const Sales = () => {
                                     </td>
                                     
                                     <td>
-                                        <select className="select-status" disabled={!canUpdateStatus || order.status === 'Đã hủy'} style={{ color: (order.status === 'Đã giao' || order.status === 'Hoàn tất cân & Nhập kho') ? '#27ae60' : order.status === 'Đã hủy' ? '#e74c3c' : '#f39c12' }} value={order.status} onChange={(e) => handleQuickUpdate(order.id, 'status', e.target.value)}>
+                                        <select 
+                                            className="select-status" 
+                                            disabled={!canUpdateStatus || order.status === 'Đã hủy'} 
+                                            style={{ color: (order.status === 'Đã giao' || order.status === 'Hoàn tất cân & Nhập kho') ? '#27ae60' : order.status === 'Đã hủy' ? '#e74c3c' : '#f39c12' }} 
+                                            value={order.status} 
+                                            onChange={(e) => handleQuickUpdate(order.id, 'status', e.target.value)}
+                                        >
                                             {order.orderType === 'Bán hàng' ? (
                                                 <>
-                                                    <option value="Chờ xử lý">Chờ xử lý (Chưa trừ kho)</option>
-                                                    <option value="Đang giao">Đang giao</option>
+                                                    {/* KHÓA LÙI TRẠNG THÁI (Chỉ hiện nếu chưa giao) */}
+                                                    {order.status !== 'Đã giao' && <option value="Chờ xử lý">Chờ xử lý (Chưa trừ kho)</option>}
+                                                    {order.status !== 'Đã giao' && <option value="Đang giao">Đang giao</option>}
                                                     <option value="Đã giao">Đã giao (Trừ kho)</option>
                                                 </>
                                             ) : (
                                                 <>
-                                                    <option value="Chờ cân">Chờ cân (Chưa nhập kho)</option>
-                                                    <option value="Đang xử lý">Đang xử lý</option>
+                                                    {order.status !== 'Hoàn tất cân & Nhập kho' && <option value="Chờ cân">Chờ cân (Chưa nhập kho)</option>}
+                                                    {order.status !== 'Hoàn tất cân & Nhập kho' && <option value="Đang xử lý">Đang xử lý</option>}
                                                     <option value="Hoàn tất cân & Nhập kho">Hoàn tất (Nhập kho)</option>
                                                 </>
                                             )}
-                                            <option value="Đã hủy">Đã hủy</option>
+
+                                            {/* PHÂN QUYỀN HỦY: Kế toán chỉ hủy được khi Đơn chưa hoàn tất. Giám đốc có toàn quyền hủy. */}
+                                            {((order.status !== 'Đã giao' && order.status !== 'Hoàn tất cân & Nhập kho') || isAdmin || order.status === 'Đã hủy') && (
+                                                <option value="Đã hủy">Đã hủy</option>
+                                            )}
                                         </select>
                                     </td>
 
                                     <td>
                                         {order.orderType === 'Bán hàng' ? (
-                                            <select className="select-status" disabled={!canUpdateStatus || order.paymentStatus === 'Đã thanh toán' || order.status === 'Đã hủy'} style={{ color: order.paymentStatus === 'Đã thanh toán' ? '#27ae60' : '#e74c3c' }} value={order.paymentStatus} onChange={(e) => handleQuickUpdate(order.id, 'paymentStatus', e.target.value)}>
-                                                <option value="Chưa thanh toán">Chưa thu tiền</option><option value="Đã thanh toán">Đã thu (Vào sổ quỹ)</option>
+                                            <select 
+                                                className="select-status" 
+                                                disabled={!canUpdateStatus || order.paymentStatus === 'Đã thanh toán' || order.status === 'Đã hủy'} 
+                                                style={{ color: order.paymentStatus === 'Đã thanh toán' ? '#27ae60' : '#e74c3c' }} 
+                                                value={order.paymentStatus} 
+                                                onChange={(e) => handleQuickUpdate(order.id, 'paymentStatus', e.target.value)}
+                                            >
+                                                <option value="Chưa thanh toán">Chưa thu tiền</option>
+                                                <option value="Đã thanh toán">Đã thu (Vào sổ quỹ)</option>
                                             </select>
                                         ) : (
                                             <span style={{fontSize: '12px', fontWeight: 'bold', color: '#3498db'}}>Hệ thống Đối trừ Công nợ</span>

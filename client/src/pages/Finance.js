@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getAllRecords, createRecord, deleteRecord, updateRecord } from '../api/financeApi';
-import { getAllMembers } from '../api/memberApi'; // IMPORT API THÀNH VIÊN
+import { getAllMembers } from '../api/memberApi'; 
 import * as XLSX from 'xlsx';
 
 const Finance = () => {
@@ -10,7 +10,7 @@ const Finance = () => {
     const canCreate = ['Giám đốc', 'Kế toán'].includes(role);
 
     const [records, setRecords] = useState([]);
-    const [membersList, setMembersList] = useState([]); // Chứa danh sách xã viên
+    const [membersList, setMembersList] = useState([]); 
     
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
@@ -19,8 +19,8 @@ const Finance = () => {
     const [sortDate, setSortDate] = useState('DESC');
     
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false); // Modal Quyết toán
-    const [selectedMember, setSelectedMember] = useState(null); // Lưu thông tin thành viên đang quyết toán
+    const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false); 
+    const [selectedMember, setSelectedMember] = useState(null); 
     
     const [editingId, setEditingId] = useState(null);
 
@@ -47,22 +47,37 @@ const Finance = () => {
     const handleMemberSelect = (e) => {
         const phone = e.target.value;
         const member = membersList.find(m => m.phone === phone);
-        if (member) {
-            setFormData({ ...formData, memberPhone: phone, actor: member.name });
-        } else {
-            setFormData({ ...formData, memberPhone: '', actor: '' });
-        }
+        if (member) setFormData({ ...formData, memberPhone: phone, actor: member.name });
+        else setFormData({ ...formData, memberPhone: '', actor: '' });
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!formData.amount || !formData.category) return alert("Vui lòng nhập Danh mục và Số tiền!");
+        
+        // [THÊM MỚI]: BỘ LỌC AN TOÀN CHẶN LỖI LẬP PHIẾU LỐ TIỀN
+        if (formData.memberPhone && ['Thu nợ vật tư', 'Thu hồi tạm ứng', 'Chi trả nợ thu mua'].includes(formData.category)) {
+            const member = membersList.find(m => m.phone === formData.memberPhone);
+            if (member) {
+                const amt = Number(formData.amount);
+                if (formData.category === 'Thu nợ vật tư' && amt > Number(member.debtMaterial || 0)) {
+                    return alert(`❌ LỖI: Xã viên này chỉ đang nợ vật tư ${new Intl.NumberFormat('vi-VN').format(member.debtMaterial || 0)}đ. Không thể thu lố!`);
+                }
+                if (formData.category === 'Thu hồi tạm ứng' && amt > Number(member.advancePayment || 0)) {
+                    return alert(`❌ LỖI: Xã viên này chỉ đang nợ tạm ứng ${new Intl.NumberFormat('vi-VN').format(member.advancePayment || 0)}đ. Không thể thu lố!`);
+                }
+                if (formData.category === 'Chi trả nợ thu mua' && amt > Number(member.debtPurchase || 0)) {
+                    return alert(`❌ LỖI: HTX chỉ nợ xã viên này ${new Intl.NumberFormat('vi-VN').format(member.debtPurchase || 0)}đ. Không thể chi lố!`);
+                }
+            }
+        }
+
         const dataToSave = { ...formData };
         try {
             if (editingId) await updateRecord(editingId, dataToSave);
             else await createRecord(dataToSave);
             setIsModalOpen(false); fetchRecords();
-        } catch (error) { alert("Lỗi khi lưu giao dịch!"); }
+        } catch (error) { alert("Lỗi khi lưu giao dịch! " + (error.response?.data?.message || "")); }
     };
 
     const handleSettlementSelect = (e) => {
@@ -79,25 +94,15 @@ const Finance = () => {
         const xvUng = Number(selectedMember.advancePayment || 0); 
         
         const finalAmount = htxNo - xvNo - xvUng;
+        let transType = 'Thu'; let transAmount = 0;
         
-        let transType = 'Thu';
-        let transAmount = 0;
-        
-        if (finalAmount > 0) {
-            transType = 'Chi'; transAmount = finalAmount; 
-        } else if (finalAmount < 0) {
-            transType = 'Thu'; transAmount = Math.abs(finalAmount); 
-        }
+        if (finalAmount > 0) { transType = 'Chi'; transAmount = finalAmount; } 
+        else if (finalAmount < 0) { transType = 'Thu'; transAmount = Math.abs(finalAmount); }
 
         const dataToSave = {
-            recordDate: new Date().toISOString().split('T')[0],
-            type: transType,
-            category: 'Quyết toán công nợ',
-            amount: transAmount,
-            paymentMethod: 'Tiền mặt', 
-            creator: currentUser.fullName,
-            actor: selectedMember.name,
-            memberPhone: selectedMember.phone,
+            recordDate: new Date().toISOString().split('T')[0], type: transType,
+            category: 'Quyết toán công nợ', amount: transAmount, paymentMethod: 'Tiền mặt', 
+            creator: currentUser.fullName, actor: selectedMember.name, memberPhone: selectedMember.phone,
             description: `Quyết toán bù trừ cuối vụ cho ${selectedMember.name} (Nợ VT: ${xvNo}, Tạm ứng: ${xvUng}, HTX nợ: ${htxNo})`,
             status: 'Hoàn thành'
         };
@@ -160,11 +165,8 @@ const Finance = () => {
                 .tool-input, .tool-select { padding: 8px 12px; border: 1px solid #dcdde1; border-radius: 4px; outline: none; }
                 .btn { padding: 10px 16px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; text-align: center;}
                 .btn-success { background: #27ae60; } .btn-danger { background: #e74c3c; } .btn-primary { background: #3498db; } .btn-warning { background: #f39c12; }
-                
-                /* ÁP DỤNG CUỘN LỒNG KÉP */
                 .card-container { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; margin-bottom: 20px; }
                 .table-scroll { width: 100%; overflow: auto; max-height: 80vh; }
-                
                 table { width: 100%; border-collapse: collapse; min-width: 900px; }
                 th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #f1f2f6; }
                 th { background: #f8f9fa; position: sticky; top: 0; z-index: 5; }
@@ -181,12 +183,7 @@ const Finance = () => {
                     .header-section .btn { width: 100%; justify-content: center; margin: 0 !important; padding: 12px; }
                     .toolbar { flex-direction: column; align-items: stretch !important; gap: 10px; padding: 15px 10px; }
                     .toolbar > * { width: 100% !important; margin: 0 !important; }
-                    .form-grid, .modal-body > div, .product-row { grid-template-columns: 1fr !important; gap: 15px; }
-                    .form-group-modal { flex-direction: column; align-items: flex-start; }
-                    .form-label-modal { width: 100%; margin-bottom: 5px; }
-                    .dashboard-cards, .kpi-grid, .charts-wrapper { grid-template-columns: 1fr !important; }
-                    .tab-header { overflow-x: auto; white-space: nowrap; padding-bottom: 5px; width: 100%; }
-                    .tab-btn { flex-shrink: 0; }
+                    .dashboard-cards { grid-template-columns: 1fr !important; }
                 }
             `}</style>
 
@@ -297,12 +294,26 @@ const Finance = () => {
 
                             {['Thu nợ vật tư', 'Thu hồi tạm ứng', 'Chi ứng trước', 'Chi trả nợ thu mua', 'Góp vốn xã viên'].includes(formData.category) && (
                                 <div style={{background: '#fff3e0', padding: '10px', borderRadius: '4px', marginBottom: '10px', border: '1px dashed #e67e22'}}>
-                                    <label style={{display:'block'}}><b>🔄 Chọn Xã viên để liên kết ví công nợ:</b>
+                                    <label style={{display:'block'}}><b>🔄 Chọn Xã viên để liên kết hệ thống:</b>
                                         <select className="tool-select" style={{width:'100%', marginTop:'5px', border: '2px solid #e67e22'}} value={formData.memberPhone || ''} onChange={handleMemberSelect}>
                                             <option value="">-- Chọn thành viên --</option>
                                             {membersList.map(m => <option key={m.id} value={m.phone}>{m.name} - {m.phone}</option>)}
                                         </select>
                                     </label>
+                                    
+                                    {/* [THÊM MỚI]: BÁO CÁO CÔNG NỢ NGAY TRÊN GIAO DIỆN */}
+                                    {formData.memberPhone && ['Thu nợ vật tư', 'Thu hồi tạm ứng', 'Chi trả nợ thu mua'].includes(formData.category) && (
+                                        <div style={{fontSize: '12px', color: '#e74c3c', marginTop: '8px', fontWeight: 'bold'}}>
+                                            {(() => {
+                                                const m = membersList.find(x => x.phone === formData.memberPhone);
+                                                if (!m) return '';
+                                                if (formData.category === 'Thu nợ vật tư') return `⚠️ Cảnh báo: Xã viên này chỉ nợ tối đa: ${new Intl.NumberFormat('vi-VN').format(m.debtMaterial || 0)} đ`;
+                                                if (formData.category === 'Thu hồi tạm ứng') return `⚠️ Cảnh báo: Tiền tạm ứng chưa thu là: ${new Intl.NumberFormat('vi-VN').format(m.advancePayment || 0)} đ`;
+                                                if (formData.category === 'Chi trả nợ thu mua') return `⚠️ Cảnh báo: HTX chỉ nợ người này: ${new Intl.NumberFormat('vi-VN').format(m.debtPurchase || 0)} đ`;
+                                                return '';
+                                            })()}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
