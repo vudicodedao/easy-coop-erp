@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { getAllRecords, createRecord, deleteRecord, updateRecord } from '../api/financeApi';
 import { getAllMembers } from '../api/memberApi'; 
 import * as XLSX from 'xlsx';
@@ -23,6 +23,9 @@ const Finance = () => {
     const [selectedMember, setSelectedMember] = useState(null); 
     
     const [editingId, setEditingId] = useState(null);
+    
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [viewData, setViewData] = useState(null);
 
     const initForm = {
         recordDate: new Date().toISOString().split('T')[0], 
@@ -32,15 +35,16 @@ const Finance = () => {
     };
     const [formData, setFormData] = useState(initForm);
 
-    const fetchRecords = async () => {
+    const fetchRecords = useCallback(async () => {
         try { 
             const [recordsRes, membersRes] = await Promise.all([getAllRecords(), getAllMembers()]);
             setRecords(recordsRes.data); 
             setMembersList(membersRes.data);
         } 
         catch (error) { console.error("Lỗi tải dữ liệu tài chính"); }
-    };
-    useEffect(() => { fetchRecords(); }, []);
+    }, []);
+
+    useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
     const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
@@ -55,7 +59,6 @@ const Finance = () => {
         e.preventDefault();
         if (!formData.amount || !formData.category) return alert("Vui lòng nhập Danh mục và Số tiền!");
         
-        // [THÊM MỚI]: BỘ LỌC AN TOÀN CHẶN LỖI LẬP PHIẾU LỐ TIỀN
         if (formData.memberPhone && ['Thu nợ vật tư', 'Thu hồi tạm ứng', 'Chi trả nợ thu mua'].includes(formData.category)) {
             const member = membersList.find(m => m.phone === formData.memberPhone);
             if (member) {
@@ -171,7 +174,7 @@ const Finance = () => {
                 th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #f1f2f6; }
                 th { background: #f8f9fa; position: sticky; top: 0; z-index: 5; }
                 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 10px;}
-                .modal-content { background: white; width: 100%; max-width: 600px; max-height: 90vh; border-radius: 8px; display: flex; flex-direction: column; }
+                .modal-content { background: white; width: 100%; max-width: 600px; max-height: 90vh; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
                 .modal-header { padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
                 .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
                 .modal-footer { padding: 15px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px; background: #f8f9fa; }
@@ -244,7 +247,7 @@ const Finance = () => {
                         <thead>
                             <tr>
                                 <th>Ngày & Mã</th><th>Loại & Hình thức</th><th>Danh mục</th><th>Số tiền</th><th>Người nộp/nhận</th><th>Trạng thái</th>
-                                {isAdmin && <th>Hành động</th>}
+                                <th>Hành động</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -254,14 +257,17 @@ const Finance = () => {
                                     <td><span style={{padding:'4px 8px', borderRadius:'4px', background: r.type==='Thu'?'#e6f4ea':'#fce8e6', color: r.type==='Thu'?'#1e8e3e':'#d93025', fontWeight:'bold'}}>{r.type}</span><br/><small>{r.paymentMethod}</small></td>
                                     <td><b>{r.category}</b></td>
                                     <td style={{fontWeight: 'bold', color: r.type==='Thu'?'#27ae60':'#e74c3c'}}>{r.type==='Thu'?'+':'-'} {new Intl.NumberFormat('vi-VN').format(r.amount)} đ</td>
-                                    <td><b>{r.actor}</b><br/><small>{r.description}</small></td>
+                                    <td><b>{r.actor}</b><br/><small style={{whiteSpace: 'pre-wrap'}}>{r.description}</small></td>
                                     <td><span style={{padding:'4px 8px', borderRadius:'4px', background: r.status === 'Hoàn thành' ? '#e6f4ea' : '#f1f3f4', color: r.status === 'Hoàn thành' ? '#1e8e3e' : '#555', fontSize:'12px'}}>{r.status}</span></td>
-                                    {isAdmin && (
-                                        <td>
-                                            <button onClick={() => handleEditClick(r)} style={{background:'none', border:'none', cursor:'pointer', marginRight:'10px'}}>✏️</button>
-                                            <button onClick={() => handleDelete(r.id)} style={{background:'none', border:'none', cursor:'pointer'}}>🗑️</button>
-                                        </td>
-                                    )}
+                                    <td style={{ whiteSpace: 'nowrap' }}>
+                                        <button onClick={() => { setViewData(r); setIsViewModalOpen(true); }} style={{background:'none', border:'none', cursor:'pointer', marginRight:'10px', fontSize: '16px'}} title="Xem chi tiết">👁️</button>
+                                        {isAdmin && (
+                                            <>
+                                                <button onClick={() => handleEditClick(r)} style={{background:'none', border:'none', cursor:'pointer', marginRight:'10px', fontSize: '16px'}} title="Sửa">✏️</button>
+                                                <button onClick={() => handleDelete(r.id)} style={{background:'none', border:'none', cursor:'pointer', fontSize: '16px'}} title="Xóa">🗑️</button>
+                                            </>
+                                        )}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -269,12 +275,13 @@ const Finance = () => {
                 </div>
             </div>
 
+            {/* MODAL LẬP PHIẾU / SỬA PHIẾU THU CHI */}
             {isModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">
-                        <div className="modal-header">
+                        <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', borderBottom: '1px solid #eee' }}>
                             <h3 style={{margin:0, color: formData.type === 'Thu' ? '#27ae60' : '#e74c3c'}}>📝 LẬP PHIẾU {formData.type.toUpperCase()}</h3>
-                            <button onClick={() => setIsModalOpen(false)} style={{background:'none', border:'none', fontSize:'18px', cursor:'pointer'}}>✕</button>
+                            <button onClick={() => setIsModalOpen(false)} style={{background:'none', border:'none', fontSize:'20px', cursor:'pointer', color: '#999'}}>✕</button>
                         </div>
                         <form id="financeForm" onSubmit={handleSubmit} className="modal-body">
                             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px', background:'#f8f9fa', padding:'15px', borderRadius:'8px', marginBottom:'15px'}}>
@@ -301,7 +308,6 @@ const Finance = () => {
                                         </select>
                                     </label>
                                     
-                                    {/* [THÊM MỚI]: BÁO CÁO CÔNG NỢ NGAY TRÊN GIAO DIỆN */}
                                     {formData.memberPhone && ['Thu nợ vật tư', 'Thu hồi tạm ứng', 'Chi trả nợ thu mua'].includes(formData.category) && (
                                         <div style={{fontSize: '12px', color: '#e74c3c', marginTop: '8px', fontWeight: 'bold'}}>
                                             {(() => {
@@ -346,12 +352,58 @@ const Finance = () => {
                 </div>
             )}
 
+            {/* MODAL XEM CHI TIẾT (READ-ONLY) */}
+            {isViewModalOpen && viewData && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '600px' }}>
+                        <div className="modal-header" style={{ background: viewData.type === 'Thu' ? '#27ae60' : '#e74c3c', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px' }}>
+                            <h3 style={{margin:0}}>👁️ Chi tiết Phiếu {viewData.type}</h3>
+                            <button onClick={() => setIsViewModalOpen(false)} style={{background:'none', border:'none', fontSize:'20px', cursor:'pointer', color: 'white'}}>✕</button>
+                        </div>
+                        <div className="modal-body">
+                            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px'}}>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Mã Phiếu (Tham chiếu):</small><b style={{color: '#2c3e50'}}>{viewData.referenceCode || '-'}</b></div>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Ngày giao dịch:</small><b style={{color: '#2c3e50'}}>{viewData.recordDate}</b></div>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Người lập phiếu:</small><b style={{color: '#2c3e50'}}>{viewData.creator}</b></div>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Người nộp / nhận tiền:</small><b style={{color: '#2c3e50'}}>{viewData.actor || '-'}</b></div>
+                            </div>
+
+                            <h4 style={{ borderBottom: '2px solid #ccc', paddingBottom: '5px', marginTop: '15px', color: '#34495e' }}>Nội dung hạch toán</h4>
+                            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px'}}>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Danh mục:</small><b style={{color: '#2c3e50'}}>{viewData.category}</b></div>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Số tiền (VNĐ):</small><b style={{color: viewData.type === 'Thu' ? '#27ae60' : '#c0392b', fontSize: '18px'}}>{new Intl.NumberFormat('vi-VN').format(viewData.amount)} đ</b></div>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Hình thức thanh toán:</small><b style={{color: '#2c3e50'}}>{viewData.paymentMethod}</b></div>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Trạng thái:</small><span style={{color: viewData.status === 'Hoàn thành' ? '#27ae60' : '#e67e22', fontWeight: 'bold'}}>{viewData.status}</span></div>
+                            </div>
+
+                            {viewData.memberPhone && (
+                                <div style={{background: '#fdfefe', padding: '10px', borderRadius: '4px', border: '1px dashed #3498db', marginTop: '10px'}}>
+                                    <small style={{color: '#3498db', display: 'block'}}>Liên kết Xã viên:</small>
+                                    <b style={{color: '#2c3e50'}}>SĐT: {viewData.memberPhone}</b>
+                                </div>
+                            )}
+
+                            {viewData.description && (
+                                <div style={{background: '#f9f9f9', padding: '10px', borderRadius: '4px', border: '1px solid #eee', marginTop: '10px'}}>
+                                    <small style={{color: '#7f8c8d', display: 'block', marginBottom: '5px'}}>Diễn giải / Ghi chú chi tiết:</small>
+                                    <span style={{color: '#2c3e50', whiteSpace: 'pre-wrap', lineHeight: '1.6'}}>{viewData.description}</span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-outline" onClick={() => setIsViewModalOpen(false)}>Đóng</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL QUYẾT TOÁN */}
             {isSettlementModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">
-                        <div className="modal-header" style={{background: '#f39c12', color: 'white', borderRadius: '8px 8px 0 0'}}>
+                        <div className="modal-header" style={{background: '#f39c12', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px'}}>
                             <h3 style={{margin:0}}>🤝 QUYẾT TOÁN BÙ TRỪ CÔNG NỢ CUỐI VỤ</h3>
-                            <button onClick={() => setIsSettlementModalOpen(false)} style={{background:'none', border:'none', fontSize:'18px', cursor:'pointer', color: 'white'}}>✕</button>
+                            <button onClick={() => setIsSettlementModalOpen(false)} style={{background:'none', border:'none', fontSize:'20px', cursor:'pointer', color: 'white'}}>✕</button>
                         </div>
                         <form id="settlementForm" onSubmit={handleSettlementSubmit} className="modal-body">
                             <label style={{display:'block', marginBottom: '20px'}}><b>Bước 1: Chọn Xã viên cần quyết toán:</b>

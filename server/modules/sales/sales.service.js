@@ -49,9 +49,6 @@ const createOrder = async (data) => {
 
         await order.update({ subTotal, totalAmount }, { transaction: t });
 
-        // ========================================================
-        // [VÁ LỖI CẤP ERP] - LƯU TẠM ỨNG NGAY KHI LẬP ĐƠN
-        // ========================================================
         if (orderType === 'Thu mua' && order.advancePayment > 0) {
             await FinanceTransaction.create({ 
                 recordDate: order.orderDate, type: 'Chi', category: 'Chi ứng trước', 
@@ -60,7 +57,6 @@ const createOrder = async (data) => {
                 description: `Chi tạm ứng lúc lập đơn thu mua ${orderCode}`, referenceCode: orderCode, status: 'Hoàn thành' 
             }, { transaction: t });
             
-            // Đồng thời cộng vào ví Tạm Ứng của Xã Viên
             if (order.memberPhone) {
                 const member = await Member.findOne({ where: { phone: order.memberPhone } });
                 if (member) await member.update({ advancePayment: Number(member.advancePayment) + order.advancePayment }, { transaction: t });
@@ -124,7 +120,6 @@ const executeStatusTriggers = async (order, newStatus, newPaymentStatus, reqData
             if (!product) throw new Error("Mặt hàng trong đơn không còn tồn tại trong kho!"); 
 
             if (order.orderType === 'Bán hàng') {
-                // ĐÃ FIX BẮT LỖI TẬN GỐC TẠI ĐÂY
                 if (product.quantity < detail.quantity) {
                     throw new Error(`Kho không đủ [${product.itemName}]. Bạn muốn giao ${detail.quantity} nhưng kho chỉ còn ${product.quantity} ${product.unit}`);
                 }
@@ -137,7 +132,6 @@ const executeStatusTriggers = async (order, newStatus, newPaymentStatus, reqData
             }
         }
 
-        // Với Thu mua: Đã nhập kho thì mới bắt đầu Ghi nợ Thu Mua cho Xã viên
         if (order.orderType === 'Thu mua') {
             const advPayment = parseFloat(order.advancePayment) || 0;
             const debtRemaining = order.totalAmount - advPayment;
@@ -148,8 +142,22 @@ const executeStatusTriggers = async (order, newStatus, newPaymentStatus, reqData
         }
     }
 
+    // ========================================================
+    // TỰ ĐỘNG NỐI CHUỖI MÔ TẢ CHI TIẾT SANG SỔ QUỸ (BÁN HÀNG)
+    // ========================================================
     if (order.orderType === 'Bán hàng' && newPaymentStatus === 'Đã thanh toán' && (!isUpdate || order.paymentStatus !== 'Đã thanh toán')) {
-        await FinanceTransaction.create({ recordDate: new Date(), type: 'Thu', category: 'Bán nông sản', amount: order.totalAmount, paymentMethod: reqData.paymentMethod || 'Tiền mặt', creator: reqData.creator || 'Hệ thống', actor: order.customerName, description: `Thu tiền Đơn ${order.orderCode}`, referenceCode: order.orderCode, status: 'Hoàn thành' }, { transaction: t });
+        const marginVal = (order.subTotal * order.marginRate) / 100;
+        const vatVal = (order.subTotal + marginVal) * order.vatRate / 100;
+        
+        // Tạo chuỗi mô tả ngắt dòng rõ ràng
+        const detailedDescription = `Thu tiền Bán hàng Đơn ${order.orderCode}\n- Tiền gốc: ${new Intl.NumberFormat('vi-VN').format(order.subTotal)} đ\n- Tiền lãi (${order.marginRate}%): ${new Intl.NumberFormat('vi-VN').format(marginVal)} đ\n- Thuế VAT (${order.vatRate}%): ${new Intl.NumberFormat('vi-VN').format(vatVal)} đ`;
+
+        await FinanceTransaction.create({ 
+            recordDate: new Date(), type: 'Thu', category: 'Bán nông sản', 
+            amount: order.totalAmount, paymentMethod: reqData.paymentMethod || 'Tiền mặt', 
+            creator: reqData.creator || 'Hệ thống', actor: order.customerName, 
+            description: detailedDescription, referenceCode: order.orderCode, status: 'Hoàn thành' 
+        }, { transaction: t });
     }
 };
 
@@ -170,7 +178,7 @@ const reverseOrderTriggers = async (order, creator, t) => {
     }
 
     if (order.orderType === 'Bán hàng' && order.paymentStatus === 'Đã thanh toán') {
-        await FinanceTransaction.create({ recordDate: new Date(), type: 'Chi', category: 'Chi khác', amount: order.totalAmount, paymentMethod: 'Tiền mặt', creator: creator, actor: order.customerName, description: `Hoàn tiền Hủy Đơn ${order.orderCode}`, referenceCode: order.orderCode, status: 'Hoàn thành' }, { transaction: t });
+        await FinanceTransaction.create({ recordDate: new Date(), type: 'Chi', category: 'Chi khác', amount: order.totalAmount, paymentMethod: 'Tiền mặt', creator: creator, actor: order.customerName, description: `Hoàn tiền Hủy Đơn bán hàng ${order.orderCode}`, referenceCode: order.orderCode, status: 'Hoàn thành' }, { transaction: t });
     } else if (order.orderType === 'Thu mua') {
         if (order.advancePayment > 0) {
             await FinanceTransaction.create({ recordDate: new Date(), type: 'Thu', category: 'Thu hồi tạm ứng', amount: order.advancePayment, paymentMethod: 'Tiền mặt', creator: creator, actor: order.customerName, memberPhone: order.memberPhone, description: `Thu hồi tạm ứng Hủy Đơn ${order.orderCode}`, referenceCode: order.orderCode, status: 'Hoàn thành' }, { transaction: t });

@@ -8,15 +8,12 @@ const Inventory = sequelize.define('Inventory', {
         type: DataTypes.ENUM('Vật tư đầu vào', 'Nông sản đầu ra', 'Công cụ dụng cụ'),
         allowNull: false 
     },
-    // --- PHẦN THÊM MỚI (V3.2): Phân loại chất lượng ---
     quality: { type: DataTypes.STRING, defaultValue: 'Tiêu chuẩn' }, 
-
     quantity: { type: DataTypes.FLOAT, defaultValue: 0 }, 
     unit: { type: DataTypes.STRING }, 
     unitPrice: { type: DataTypes.BIGINT, defaultValue: 0 }, 
     supplier: { type: DataTypes.STRING }, 
     lastUpdated: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
-    
     batchNumber: { type: DataTypes.STRING }, 
     expiryDate: { type: DataTypes.DATEONLY } 
 });
@@ -32,6 +29,12 @@ const InventoryTransaction = sequelize.define('InventoryTransaction', {
     supplier: { type: DataTypes.STRING }, 
     quantity: { type: DataTypes.FLOAT, allowNull: false }, 
     unitPrice: { type: DataTypes.BIGINT, defaultValue: 0 },
+    
+    // --- THÊM MỚI CHO GIAI ĐOẠN 1: KẾ TOÁN VAT & CHI TIẾT ---
+    vatRate: { type: DataTypes.FLOAT, defaultValue: 0 }, // % Thuế VAT
+    totalAmount: { type: DataTypes.BIGINT, defaultValue: 0 }, // Thành tiền sau VAT
+    paymentMethod: { type: DataTypes.STRING }, // Tiền mặt / Chuyển khoản
+    paymentStatus: { type: DataTypes.STRING }, // Đã thanh toán / Ghi nợ
     
     memberPhone: { type: DataTypes.STRING }, 
     isCredit: { type: DataTypes.BOOLEAN, defaultValue: false } 

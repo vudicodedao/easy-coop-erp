@@ -7,7 +7,6 @@ import * as XLSX from 'xlsx';
 const Sales = () => {
     const currentUser = JSON.parse(localStorage.getItem('user')) || {};
     const role = currentUser.role;
-    // [THÊM MỚI] Biến kiểm tra Quyền Giám Đốc
     const isAdmin = role === 'Giám đốc'; 
     const canCreate = ['Giám đốc', 'Kế toán'].includes(role); 
     const canUpdateStatus = ['Giám đốc', 'Kế toán'].includes(role);
@@ -20,10 +19,14 @@ const Sales = () => {
     const [filterOrderType, setFilterOrderType] = useState('All');
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    // --- STATE XEM CHI TIẾT (READ-ONLY) ---
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [viewOrderData, setViewOrderData] = useState(null);
+
     const initialForm = { 
         orderType: 'Bán hàng', customerName: '', phone: '', memberPhone: '', 
         status: 'Chờ xử lý', paymentStatus: 'Chưa thanh toán', paymentMethod: 'Tiền mặt', 
-        advancePayment: 0, marginRate: 0, vatRate: 0 
+        advancePayment: 0, marginRate: 0, vatRate: 0, note: ''
     };
     const [formData, setFormData] = useState(initialForm);
     const [selectedProducts, setSelectedProducts] = useState([{ productId: '', quantity: 1, price: 0 }]); 
@@ -192,13 +195,13 @@ const Sales = () => {
                 <div className="table-scroll">
                     <table>
                         <colgroup>
-                            <col style={{ width: '13%' }} /><col style={{ width: '13%' }} /><col style={{ width: '22%' }} /><col style={{ width: '18%' }} /><col style={{ width: '15%' }} /><col style={{ width: '14%' }} />
-                            {canDelete && <col style={{ width: '5%' }} />}
+                            <col style={{ width: '13%' }} /><col style={{ width: '13%' }} /><col style={{ width: '22%' }} /><col style={{ width: '18%' }} /><col style={{ width: '14%' }} /><col style={{ width: '12%' }} />
+                            <col style={{ width: '8%' }} /> {/* Cột Hành động gộp chung */}
                         </colgroup>
                         <thead>
                             <tr>
                                 <th>Mã đơn & Loại</th><th>Khách / Xã Viên</th><th>Chi tiết hàng hóa</th><th>Kế toán (VNĐ)</th><th>Trạng thái (Kho)</th><th>Thanh toán (Sổ Quỹ)</th>
-                                {canDelete && <th></th>}
+                                <th>Hành động</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -241,7 +244,6 @@ const Sales = () => {
                                         >
                                             {order.orderType === 'Bán hàng' ? (
                                                 <>
-                                                    {/* KHÓA LÙI TRẠNG THÁI (Chỉ hiện nếu chưa giao) */}
                                                     {order.status !== 'Đã giao' && <option value="Chờ xử lý">Chờ xử lý (Chưa trừ kho)</option>}
                                                     {order.status !== 'Đã giao' && <option value="Đang giao">Đang giao</option>}
                                                     <option value="Đã giao">Đã giao (Trừ kho)</option>
@@ -253,8 +255,6 @@ const Sales = () => {
                                                     <option value="Hoàn tất cân & Nhập kho">Hoàn tất (Nhập kho)</option>
                                                 </>
                                             )}
-
-                                            {/* PHÂN QUYỀN HỦY: Kế toán chỉ hủy được khi Đơn chưa hoàn tất. Giám đốc có toàn quyền hủy. */}
                                             {((order.status !== 'Đã giao' && order.status !== 'Hoàn tất cân & Nhập kho') || isAdmin || order.status === 'Đã hủy') && (
                                                 <option value="Đã hủy">Đã hủy</option>
                                             )}
@@ -278,7 +278,10 @@ const Sales = () => {
                                         )}
                                     </td>
 
-                                    {canDelete && <td><button onClick={() => handleDelete(order.id)} style={{background:'none', border:'none', cursor:'pointer', fontSize:'16px'}}>🗑️</button></td>}
+                                    <td style={{ whiteSpace: 'nowrap' }}>
+                                        <button onClick={() => { setViewOrderData(order); setIsViewModalOpen(true); }} style={{background:'none', border:'none', cursor:'pointer', marginRight:'5px', fontSize:'16px'}} title="Xem chi tiết">👁️</button>
+                                        {canDelete && <button onClick={() => handleDelete(order.id)} style={{background:'none', border:'none', cursor:'pointer', fontSize:'16px'}} title="Xóa cứng">🗑️</button>}
+                                    </td>
                                 </tr>
                             )) : <tr><td colSpan="7" style={{textAlign: 'center', padding: '30px', color: '#7f8c8d'}}>Không tìm thấy dữ liệu!</td></tr>}
                         </tbody>
@@ -286,6 +289,7 @@ const Sales = () => {
                 </div>
             </div>
 
+            {/* MODAL 1: TẠO PHIẾU MỚI */}
             {isModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">
@@ -351,6 +355,10 @@ const Sales = () => {
                                     </label>
                                 </div>
 
+                                <label style={{display:'block', marginBottom: '15px'}}><b>Ghi chú / Mô tả:</b>
+                                    <textarea className="tool-input" style={{width:'100%', marginTop:'5px'}} rows="2" name="note" value={formData.note} onChange={handleChange} placeholder="Ghi chú thêm cho đơn hàng này..."></textarea>
+                                </label>
+
                                 <h4 style={{borderBottom: '2px solid #f39c12', paddingBottom: '10px', color: '#e67e22'}}>🛒 CHỌN NÔNG SẢN {formData.orderType.toUpperCase()}</h4>
                                 {selectedProducts.map((prod, index) => (
                                     <div className="product-row" key={index}>
@@ -392,6 +400,81 @@ const Sales = () => {
                             <button form="salesForm" type="submit" className="btn" style={{background: formData.orderType === 'Thu mua' ? '#27ae60' : '#f39c12'}}>
                                 {formData.orderType === 'Thu mua' ? 'LƯU PHIẾU THU MUA' : 'LƯU ĐƠN BÁN HÀNG'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL 2: XEM CHI TIẾT (READ-ONLY HÓA ĐƠN) */}
+            {isViewModalOpen && viewOrderData && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '800px' }}>
+                        <div className="modal-header" style={{ background: viewOrderData.orderType === 'Thu mua' ? '#27ae60' : '#f39c12', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px' }}>
+                            <h3 style={{margin:0}}>👁️ Chi tiết {viewOrderData.orderType === 'Thu mua' ? 'Phiếu Thu Mua' : 'Đơn Bán Hàng'}</h3>
+                            <button onClick={() => setIsViewModalOpen(false)} style={{background:'none', border:'none', fontSize:'20px', cursor:'pointer', color: 'white'}}>✕</button>
+                        </div>
+                        <div className="modal-body">
+                            
+                            {/* Thông tin chung */}
+                            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px'}}>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Mã Đơn:</small><b style={{color: '#2c3e50'}}>{viewOrderData.orderCode}</b></div>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Ngày lập:</small><b style={{color: '#2c3e50'}}>{new Date(viewOrderData.orderDate).toLocaleDateString('vi-VN')}</b></div>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>{viewOrderData.orderType === 'Thu mua' ? 'Xã viên:' : 'Khách hàng:'}</small><b style={{color: '#2c3e50'}}>{viewOrderData.customerName} {viewOrderData.phone ? `(${viewOrderData.phone})` : ''}</b></div>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Liên kết Công nợ (SĐT):</small><b style={{color: '#2c3e50'}}>{viewOrderData.memberPhone || 'Không có'}</b></div>
+                            </div>
+
+                            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px'}}>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Trạng thái Kho:</small><span style={{color: (viewOrderData.status === 'Đã giao' || viewOrderData.status === 'Hoàn tất cân & Nhập kho') ? '#27ae60' : viewOrderData.status === 'Đã hủy' ? '#e74c3c' : '#f39c12', fontWeight: 'bold'}}>{viewOrderData.status}</span></div>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Thanh toán (Sổ Quỹ):</small><span style={{color: viewOrderData.paymentStatus === 'Đã thanh toán' ? '#27ae60' : '#e74c3c', fontWeight: 'bold'}}>{viewOrderData.paymentStatus}</span></div>
+                            </div>
+
+                            <h4 style={{ borderBottom: '2px solid #ccc', paddingBottom: '5px', marginTop: '15px', color: '#34495e' }}>🛒 Chi tiết Hàng hóa</h4>
+                            <table style={{width: '100%', marginBottom: '20px', borderCollapse: 'collapse', border: '1px solid #eee'}}>
+                                <thead style={{background: '#f8f9fa'}}>
+                                    <tr>
+                                        <th style={{padding: '10px', borderBottom: '1px solid #eee'}}>Tên mặt hàng</th>
+                                        <th style={{padding: '10px', borderBottom: '1px solid #eee'}}>Số lượng</th>
+                                        <th style={{padding: '10px', borderBottom: '1px solid #eee'}}>Đơn giá gốc</th>
+                                        <th style={{padding: '10px', borderBottom: '1px solid #eee'}}>Thành tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {viewOrderData.OrderDetails?.map(detail => (
+                                        <tr key={detail.id}>
+                                            <td style={{padding: '10px', borderBottom: '1px solid #eee'}}><b>{detail.Inventory?.itemName}</b> <br/><small style={{color: '#7f8c8d'}}>{detail.quality || 'Tiêu chuẩn'}</small></td>
+                                            <td style={{padding: '10px', borderBottom: '1px solid #eee'}}>{detail.quantity} {detail.unit}</td>
+                                            <td style={{padding: '10px', borderBottom: '1px solid #eee'}}>{new Intl.NumberFormat('vi-VN').format(detail.unitPrice)} đ</td>
+                                            <td style={{padding: '10px', borderBottom: '1px solid #eee'}}><b>{new Intl.NumberFormat('vi-VN').format(detail.quantity * detail.unitPrice)} đ</b></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+
+                            <h4 style={{ borderBottom: '2px solid #ccc', paddingBottom: '5px', marginTop: '15px', color: '#34495e' }}>💰 Thông tin Kế toán</h4>
+                            <div style={{textAlign: 'right', padding: '15px', background: '#fdfefe', borderRadius: '8px', border: '1px solid #e0e0e0'}}>
+                                <div style={{color: '#7f8c8d', marginBottom: '5px'}}>Tổng tiền gốc: {new Intl.NumberFormat('vi-VN').format(viewOrderData.subTotal || 0)} đ</div>
+                                {viewOrderData.orderType === 'Bán hàng' && <div style={{color: '#f39c12', marginBottom: '5px'}}>+ Lợi nhuận ({viewOrderData.marginRate || 0}%): {new Intl.NumberFormat('vi-VN').format((viewOrderData.subTotal || 0) * (viewOrderData.marginRate || 0) / 100)} đ</div>}
+                                <div style={{color: '#e74c3c', marginBottom: '10px'}}>+ Thuế VAT ({viewOrderData.vatRate || 0}%): {new Intl.NumberFormat('vi-VN').format(((viewOrderData.subTotal || 0) + (viewOrderData.orderType === 'Bán hàng' ? (viewOrderData.subTotal || 0) * (viewOrderData.marginRate || 0) / 100 : 0)) * (viewOrderData.vatRate || 0) / 100)} đ</div>
+                                
+                                <h3 style={{ margin: '10px 0', color: viewOrderData.orderType === 'Thu mua' ? '#27ae60' : '#8e44ad', fontSize: '22px' }}>TỔNG THANH TOÁN: {new Intl.NumberFormat('vi-VN').format(viewOrderData.totalAmount || 0)} đ</h3>
+                                
+                                {viewOrderData.orderType === 'Thu mua' && viewOrderData.advancePayment > 0 && (
+                                    <>
+                                        <h4 style={{ margin: '10px 0 5px 0', color: '#e67e22' }}>Đã chi tạm ứng: - {new Intl.NumberFormat('vi-VN').format(viewOrderData.advancePayment)} đ</h4>
+                                        <h3 style={{ margin: 0, color: '#c0392b' }}>Còn lại (Ghi nợ): {new Intl.NumberFormat('vi-VN').format(Math.max(0, viewOrderData.totalAmount - viewOrderData.advancePayment))} đ</h3>
+                                    </>
+                                )}
+                            </div>
+
+                            {viewOrderData.note && (
+                                <div style={{background: '#f9f9f9', padding: '10px', borderRadius: '4px', border: '1px solid #eee', marginTop: '15px'}}>
+                                    <small style={{color: '#7f8c8d', display: 'block', marginBottom: '5px'}}>Ghi chú:</small>
+                                    <span style={{color: '#2c3e50', whiteSpace: 'pre-wrap', lineHeight: '1.6'}}>{viewOrderData.note}</span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-outline" style={{background: 'white', color: '#333', border: '1px solid #ccc', padding: '10px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'}} onClick={() => setIsViewModalOpen(false)}>Đóng</button>
                         </div>
                     </div>
                 </div>

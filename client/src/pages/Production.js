@@ -18,6 +18,10 @@ const Production = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
 
+    // --- STATE XEM CHI TIẾT (READ-ONLY) ---
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [viewLogData, setViewLogData] = useState(null);
+
     const initForm = {
         seasonName: 'Xuân - Hè', cropType: '', activityDate: new Date().toISOString().split('T')[0], 
         activityType: 'Làm đất', description: '', weather: 'Nắng đẹp', 
@@ -79,7 +83,6 @@ const Production = () => {
         }
     };
 
-    // [THÊM MỚI] - GỌI API TRẢ ĐỒ HOẶC BÁO MẤT
     const triggerToolAction = async (logId, toolId, action, toolName) => {
         const actionText = action === 'return' ? `TRẢ công cụ [${toolName}] vào kho?` : `BÁO MẤT [${toolName}]? (Hệ thống sẽ trừ tiền đền bù vào Nợ Vật tư của bạn)`;
         if (window.confirm(`Bạn có chắc chắn muốn ${actionText}`)) {
@@ -98,7 +101,6 @@ const Production = () => {
     );
 
     const handleExportExcel = () => {
-        // Rút gọn Logic Excel để code ngắn gọn
         const ws = XLSX.utils.json_to_sheet(filteredLogs); const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "NhatKy"); XLSX.writeFile(wb, "Nhat_Ky_Canh_Tac.xlsx");
     };
@@ -114,19 +116,18 @@ const Production = () => {
                 .tool-input, .tool-select { padding: 8px 12px; border: 1px solid #dcdde1; border-radius: 4px; outline: none; }
                 .btn { padding: 10px 16px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; background: #3498db; transition: 0.2s; }
                 .btn:hover { background: #2980b9; }
-                .card-container { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; margin-bottom: 20px; }
+                .card-container { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; margin-bottom: 20px; flex: 1; overflow: hidden; }
                 .table-scroll { width: 100%; flex: 1; overflow: auto; max-height: 80vh;}
                 table { width: 100%; border-collapse: collapse; min-width: 1050px; table-layout: fixed; }
                 th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #f1f2f6; word-wrap: break-word; vertical-align: top;}
                 th { background: #f8f9fa; position: sticky; top: 0; z-index: 10; color: #2c3e50; box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1); }
                 
-                .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-                .modal-content { background: white; width: 100%; max-width: 800px; max-height: 90vh; border-radius: 8px; display: flex; flex-direction: column; }
+                .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 10px; }
+                .modal-content { background: white; width: 100%; max-width: 800px; max-height: 95vh; border-radius: 8px; display: flex; flex-direction: column; }
                 .modal-header { padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-                .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
-                .modal-footer { padding: 15px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; background: #f8f9fa; }
+                .modal-body { padding: 20px; overflow-y: auto; flex: 1; overflow-x: hidden; }
+                .modal-footer { padding: 15px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; background: #f8f9fa; gap: 10px; }
                 
-                /* Nút xử lý công cụ */
                 .btn-tool { border: none; padding: 3px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; cursor: pointer; margin-right: 5px; color: white;}
                 .btn-return { background-color: #27ae60; } .btn-return:hover { background-color: #219a52; }
                 .btn-lost { background-color: #e74c3c; } .btn-lost:hover { background-color: #c0392b; }
@@ -150,16 +151,15 @@ const Production = () => {
                         <colgroup>
                             <col style={{ width: '13%' }} /><col style={{ width: '15%' }} /><col style={{ width: '15%' }} />
                             <col style={{ width: '25%' }} /><col style={{ width: '13%' }} />
-                            {canEdit && <col style={{ width: '7%' }} />}
+                            <col style={{ width: '10%' }} /> {/* Cột Hành động */}
                         </colgroup>
                         <thead>
                             <tr>
-                                <th>Ngày & Vụ</th><th>Hoạt động</th><th>Người thực hiện</th><th>Vật tư & Công cụ (Quản lý mượn/trả)</th><th>Trạng thái</th>{canEdit && <th></th>}
+                                <th>Ngày & Vụ</th><th>Hoạt động</th><th>Người thực hiện</th><th>Vật tư & Công cụ (Quản lý mượn/trả)</th><th>Trạng thái</th><th>Hành động</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredLogs.map((log) => {
-                                // Giải mã JSON để hiển thị và tạo nút bấm Trả đồ
                                 let usedToolsArr = [];
                                 try { usedToolsArr = JSON.parse(log.toolsUsed || '[]'); } catch(e){}
 
@@ -176,7 +176,6 @@ const Production = () => {
                                                         <b>{item.itemName}</b> (SL: {item.qty}) <br/>
                                                         
                                                         {item.isTool ? (
-                                                            // Giao diện của Công cụ (Có nút bấm Trả / Báo hỏng)
                                                             item.status === 'Đang mượn' ? (
                                                                 <div style={{marginTop: '3px'}}>
                                                                     <button className="btn-tool btn-return" onClick={() => triggerToolAction(log.id, item.id, 'return', item.itemName)}>🔄 Trả đồ</button>
@@ -188,7 +187,6 @@ const Production = () => {
                                                                 </span>
                                                             )
                                                         ) : (
-                                                            // Giao diện của Vật tư tiêu hao (Hạt giống, Phân bón)
                                                             <span style={{color: '#7f8c8d', fontSize: '11px'}}>- Tiêu hao -</span>
                                                         )}
                                                     </li>
@@ -203,12 +201,15 @@ const Production = () => {
                                         )}
                                     </td>
                                     <td><span style={{padding:'4px 8px', borderRadius:'4px', fontSize:'11px', fontWeight: 'bold', color: log.status==='Đã hoàn thành'?'#1e8e3e':'#d35400', background: log.status==='Đã hoàn thành'?'#e6f4ea':'#fdf2d0'}}>{log.status}</span></td>
-                                    {canEdit && (isAdmin || log.creatorPhone === currentUser.phone) && (
-                                        <td>
-                                            <button onClick={() => handleEditClick(log)} style={{background:'none', border:'none', cursor:'pointer', marginRight:'10px'}}>✏️</button>
-                                            <button onClick={() => handleDelete(log.id)} style={{background:'none', border:'none', cursor:'pointer'}}>🗑️</button>
-                                        </td>
-                                    )}
+                                    <td style={{ whiteSpace: 'nowrap' }}>
+                                        <button onClick={() => { setViewLogData(log); setIsViewModalOpen(true); }} style={{background:'none', border:'none', cursor:'pointer', marginRight:'5px', fontSize:'16px'}} title="Xem chi tiết">👁️</button>
+                                        {canEdit && (isAdmin || log.creatorPhone === currentUser.phone) && (
+                                            <>
+                                                <button onClick={() => handleEditClick(log)} style={{background:'none', border:'none', cursor:'pointer', marginRight:'5px', fontSize:'16px'}} title="Sửa">✏️</button>
+                                                <button onClick={() => handleDelete(log.id)} style={{background:'none', border:'none', cursor:'pointer', fontSize:'16px'}} title="Xóa">🗑️</button>
+                                            </>
+                                        )}
+                                    </td>
                                 </tr>
                             )})}
                         </tbody>
@@ -216,12 +217,13 @@ const Production = () => {
                 </div>
             </div>
 
+            {/* MODAL 1: TẠO / SỬA NHẬT KÝ */}
             {isModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">
                         <div className="modal-header">
                             <h3 style={{margin:0, color: '#2c3e50'}}>📝 {editingId ? "Cập nhật Nhật ký" : "Ghi Nhật ký Canh tác"}</h3>
-                            <button onClick={() => setIsModalOpen(false)} style={{background:'none', border:'none', fontSize:'18px', cursor:'pointer'}}>✕</button>
+                            <button onClick={() => setIsModalOpen(false)} style={{background:'none', border:'none', fontSize:'20px', cursor:'pointer', color: '#999'}}>✕</button>
                         </div>
                         <form id="productionForm" onSubmit={handleSubmit} className="modal-body">
                             
@@ -254,7 +256,6 @@ const Production = () => {
                                 <label><b>Ghi chú loại cây (nếu có):</b><input className="tool-input" name="cropType" style={{width:'100%', marginTop:'5px'}} value={formData.cropType} onChange={handleChange} placeholder="Ví dụ: Cà chua Beef..."/></label>
                             </div>
 
-                            {/* KHU VỰC THÊM VẬT TƯ / CÔNG CỤ / GIỐNG */}
                             <div style={{borderLeft:'3px solid #e67e22', paddingLeft:'15px', marginBottom:'15px', background: '#fffcf5', padding: '15px', borderRadius: '0 8px 8px 0'}}>
                                 <h4 style={{ margin: '0 0 15px 0', color: '#d35400' }}>📦 XUẤT KHO SỬ DỤNG LÀM ĐỒNG</h4>
                                 
@@ -275,7 +276,7 @@ const Production = () => {
                                     </div>
                                 ))}
                                 
-                                {!editingId && <button type="button" className="btn btn-outline" style={{width: '100%', borderStyle: 'dashed', color: '#e67e22', borderColor: '#e67e22'}} onClick={addUsedItem}>+ Thêm đồ cần xuất kho</button>}
+                                {!editingId && <button type="button" className="btn btn-outline" style={{width: '100%', borderStyle: 'dashed', color: '#e67e22', borderColor: '#e67e22', background: 'white'}} onClick={addUsedItem}>+ Thêm đồ cần xuất kho</button>}
                             </div>
 
                             <label style={{display:'block', marginBottom:'15px'}}><b>Thời tiết:</b>
@@ -297,6 +298,85 @@ const Production = () => {
                         <div className="modal-footer">
                             <button className="btn" style={{backgroundColor: '#f1f3f4', color: '#333'}} onClick={() => setIsModalOpen(false)}>Hủy bỏ</button>
                             <button className="btn" form="productionForm" type="submit">Lưu Nhật ký</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL 2: XEM CHI TIẾT NHẬT KÝ (READ-ONLY) */}
+            {isViewModalOpen && viewLogData && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '650px' }}>
+                        <div className="modal-header" style={{ background: '#27ae60', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px' }}>
+                            <h3 style={{margin:0}}>👁️ Chi tiết Nhật ký Canh tác</h3>
+                            <button onClick={() => setIsViewModalOpen(false)} style={{background:'none', border:'none', fontSize:'20px', cursor:'pointer', color: 'white'}}>✕</button>
+                        </div>
+                        <div className="modal-body">
+                            
+                            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px'}}>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Người thực hiện:</small><b style={{color: '#2c3e50'}}>{viewLogData.executor}</b></div>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>SĐT Liên kết:</small><b style={{color: '#2c3e50'}}>{viewLogData.creatorPhone || '-'}</b></div>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Ngày hoạt động:</small><b style={{color: '#2c3e50'}}>{new Date(viewLogData.activityDate).toLocaleDateString('vi-VN')}</b></div>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Vụ mùa / Thời tiết:</small><b style={{color: '#2c3e50'}}>{viewLogData.seasonName} | {viewLogData.weather}</b></div>
+                            </div>
+
+                            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px'}}>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Hoạt động:</small><span style={{color: '#2980b9', fontWeight: 'bold', fontSize: '15px'}}>{viewLogData.activityType} {viewLogData.cropType ? `(${viewLogData.cropType})` : ''}</span></div>
+                                <div style={{background: '#f1f2f6', padding: '10px', borderRadius: '4px', border: '1px solid #dcdde1'}}><small style={{color: '#7f8c8d', display: 'block'}}>Trạng thái công việc:</small><span style={{color: viewLogData.status === 'Đã hoàn thành' ? '#27ae60' : '#d35400', fontWeight: 'bold'}}>{viewLogData.status}</span></div>
+                            </div>
+
+                            {viewLogData.description && (
+                                <div style={{background: '#fdfefe', padding: '12px', borderRadius: '4px', border: '1px solid #eee', marginBottom: '20px'}}>
+                                    <small style={{color: '#7f8c8d', display: 'block', marginBottom: '5px'}}>Ghi chú chi tiết:</small>
+                                    <span style={{color: '#2c3e50', whiteSpace: 'pre-wrap', lineHeight: '1.5'}}>{viewLogData.description}</span>
+                                </div>
+                            )}
+
+                            <h4 style={{ borderBottom: '2px solid #ccc', paddingBottom: '5px', marginTop: '15px', color: '#34495e' }}>📦 Chi tiết Vật tư & Công cụ đã dùng</h4>
+                            <table style={{width: '100%', marginBottom: '10px', borderCollapse: 'collapse', border: '1px solid #eee'}}>
+                                <thead style={{background: '#f8f9fa'}}>
+                                    <tr>
+                                        <th style={{padding: '10px', borderBottom: '1px solid #eee'}}>Tên đồ dùng</th>
+                                        <th style={{padding: '10px', borderBottom: '1px solid #eee'}}>Số lượng</th>
+                                        <th style={{padding: '10px', borderBottom: '1px solid #eee'}}>Tình trạng</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(() => {
+                                        let items = [];
+                                        try { items = JSON.parse(viewLogData.toolsUsed || '[]'); } catch(e){}
+                                        
+                                        if (items.length === 0) return <tr><td colSpan="3" style={{padding:'10px', textAlign:'center', color:'#7f8c8d'}}>Không sử dụng vật tư/công cụ nào</td></tr>;
+
+                                        return items.map((item, idx) => (
+                                            <tr key={idx}>
+                                                <td style={{padding: '10px', borderBottom: '1px solid #eee'}}><b>{item.itemName}</b></td>
+                                                <td style={{padding: '10px', borderBottom: '1px solid #eee'}}>{item.qty}</td>
+                                                <td style={{padding: '10px', borderBottom: '1px solid #eee'}}>
+                                                    <span style={{
+                                                        padding: '3px 6px', borderRadius: '3px', fontSize: '11px', fontWeight: 'bold',
+                                                        background: item.status === 'Đang mượn' ? '#f39c12' : item.status === 'Đã trả' ? '#27ae60' : item.status === 'Đã đền bù' ? '#c0392b' : '#ecf0f1',
+                                                        color: item.status === 'Đã tiêu hao' ? '#7f8c8d' : 'white'
+                                                    }}>
+                                                        {item.status}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ));
+                                    })()}
+                                </tbody>
+                            </table>
+
+                            {Number(viewLogData.materialCost) > 0 && (
+                                <div style={{textAlign: 'right', marginTop: '15px', padding: '10px', background: '#fff5f5', borderRadius: '6px', border: '1px dashed #e74c3c'}}>
+                                    <div style={{color: '#c0392b', fontSize: '13px'}}>*Tiền mua vật tư hoặc đền bù công cụ hỏng</div>
+                                    <h3 style={{ margin: '5px 0 0 0', color: '#c0392b' }}>Tổng nợ bị trừ: {new Intl.NumberFormat('vi-VN').format(viewLogData.materialCost)} đ</h3>
+                                </div>
+                            )}
+
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-outline" style={{background: 'white', color: '#333', border: '1px solid #ccc', padding: '10px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'}} onClick={() => setIsViewModalOpen(false)}>Đóng</button>
                         </div>
                     </div>
                 </div>
