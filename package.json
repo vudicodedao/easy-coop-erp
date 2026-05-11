@@ -1,0 +1,27 @@
+{
+  "name": "ql_htx_nongnghiep",
+  "version": "1.0.0",
+  "description": "EASY CO-OP là một giải pháp phần mềm quản trị doanh nghiệp (ERP) toàn diện, được thiết kế chuyên biệt để giải quyết các bài toán vận hành thực tế tại các Hợp tác xã Nông nghiệp. Hệ thống giúp số hóa toàn bộ quy trình từ quản lý nhân sự, kho bãi, quy trình canh tác cho đến khâu thu mua, bán hàng và quyết toán công nợ phức tạp.",
+  "main": "index.js",
+  "scripts": {
+  "server": "cd server && npm start",
+  "client": "cd client && npm start",
+  "start": "concurrently \"npm run server\" \"npm run client\"",
+  "seed": "cd server && npm run seed"
+},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vudicodedao/easy-coop-erp.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/vudicodedao/easy-coop-erp/issues"
+  },
+  "homepage": "https://github.com/vudicodedao/easy-coop-erp#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
